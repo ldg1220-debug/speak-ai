@@ -3,14 +3,19 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Mic, MicOff, Volume2, BookOpen, Loader2 } from "lucide-react";
 
+type HistoryMessage = { role: "user" | "assistant"; content: string };
+
 type Message =
   | { role: "user"; text: string; correction: string | null }
   | { role: "assistant"; text: string };
 
 export default function Home() {
   const [messages, setMessages] = useState<Message[]>([
-    { role: "assistant", text: "Hi! I'm your English tutor. Hold the mic button and start speaking — I'll help you practice!" },
+    { role: "assistant", text: "Hey! I'm Kai, your English conversation partner. Hold the mic and start talking — any topic, any time. 😊 What's been on your mind lately?" },
   ]);
+  // GPT-4o conversation history (only role+content, not UI-specific fields)
+  const [history, setHistory] = useState<HistoryMessage[]>([]);
+
   const [isRecording, setIsRecording] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
@@ -56,12 +61,13 @@ export default function Home() {
   }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const sendAudio = async (audioBlob: Blob, mimeType: string) => {
-    if (audioBlob.size < 1000) return; // ignore very short clips
+    if (audioBlob.size < 1000) return;
     setIsProcessing(true);
     try {
       const ext = mimeType.includes("mp4") ? "m4a" : "webm";
       const formData = new FormData();
       formData.append("audio", audioBlob, `recording.${ext}`);
+      formData.append("history", JSON.stringify(history));
 
       const res = await fetch("/api/chat", { method: "POST", body: formData });
       if (!res.ok) {
@@ -72,13 +78,21 @@ export default function Home() {
       const data: { transcript: string; correction: string | null; reply: string; audio: string } =
         await res.json();
 
+      // Update UI messages
       setMessages((prev) => [
         ...prev,
         { role: "user", text: data.transcript, correction: data.correction },
         { role: "assistant", text: data.reply },
       ]);
 
-      // Auto-play TTS audio
+      // Append to GPT-4o history
+      setHistory((prev) => [
+        ...prev,
+        { role: "user", content: data.transcript },
+        { role: "assistant", content: data.reply },
+      ]);
+
+      // Auto-play TTS
       if (data.audio) {
         const binary = atob(data.audio);
         const bytes = new Uint8Array(binary.length);
@@ -95,14 +109,13 @@ export default function Home() {
       const message = err instanceof Error ? err.message : "Something went wrong.";
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", text: `⚠️ Error: ${message}` },
+        { role: "assistant", text: `⚠️ ${message}` },
       ]);
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Touch / mouse handlers for hold-to-speak
   const handlePointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     startRecording();
@@ -118,7 +131,7 @@ export default function Home() {
         </div>
         <div>
           <h1 className="text-base font-semibold text-slate-100 leading-tight">English Tutor AI</h1>
-          <p className="text-xs text-slate-400">Powered by GPT-4o · Whisper · TTS</p>
+          <p className="text-xs text-slate-400">Talk about anything · Korean &amp; English OK</p>
         </div>
       </header>
 
@@ -133,7 +146,7 @@ export default function Home() {
                 </div>
                 {msg.correction && (
                   <div className="max-w-[80%] px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs leading-relaxed">
-                    <span className="font-semibold text-amber-400">Correction: </span>
+                    <span className="font-semibold text-amber-400">💡 More natural: </span>
                     {msg.correction}
                   </div>
                 )}
@@ -151,7 +164,6 @@ export default function Home() {
           </div>
         ))}
 
-        {/* Processing indicator */}
         {isProcessing && (
           <div className="flex items-start gap-2.5">
             <div className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-slate-700">
@@ -169,11 +181,11 @@ export default function Home() {
         <div ref={chatEndRef} />
       </main>
 
-      {/* Bottom control bar */}
+      {/* Footer */}
       <footer className="px-4 py-5 border-t border-slate-700/60 bg-slate-900/90 backdrop-blur">
         <div className="flex flex-col items-center gap-2">
           <p className="text-xs text-slate-500">
-            {isRecording ? "Release to send" : isProcessing ? "Processing…" : "Hold to speak"}
+            {isRecording ? "Release to send" : isProcessing ? "Processing…" : "Hold to speak · 한국어도 OK"}
           </p>
           <div className="relative flex items-center justify-center">
             <button
@@ -204,7 +216,6 @@ export default function Home() {
         </div>
       </footer>
 
-      {/* Hidden audio element for TTS playback */}
       <audio ref={audioRef} className="hidden" />
     </div>
   );
