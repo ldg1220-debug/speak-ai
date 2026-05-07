@@ -6,125 +6,100 @@
   <title>English Tutor AI</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg: #0f172a;
-      --surface: #1e293b;
-      --surface2: #334155;
-      --border: #334155;
-      --text: #f1f5f9;
-      --text-muted: #94a3b8;
-      --indigo: #6366f1;
-      --indigo-hover: #818cf8;
-      --red: #ef4444;
-      --amber-bg: rgba(245,158,11,0.12);
-      --amber-border: rgba(245,158,11,0.3);
-      --amber-text: #fcd34d;
+      --bg: #0f172a; --surface: #1e293b; --surface2: #334155; --border: #334155;
+      --text: #f1f5f9; --muted: #94a3b8;
+      --indigo: #6366f1; --indigo-h: #818cf8; --red: #ef4444;
+      --amber-bg: rgba(245,158,11,.12); --amber-border: rgba(245,158,11,.3); --amber-text: #fcd34d;
     }
-
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-
+    html, body { height: 100%; background: var(--bg); color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     ::-webkit-scrollbar { width: 4px; }
     ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
 
     #app { display: flex; flex-direction: column; height: 100%; max-width: 680px; margin: 0 auto; }
 
-    /* API Key banner */
-    #key-banner {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 16px; background: var(--surface);
-      border-bottom: 1px solid var(--border); flex-shrink: 0;
-    }
-    #key-banner label { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-    #key-input {
-      flex: 1; background: var(--bg); border: 1px solid var(--border);
-      border-radius: 6px; padding: 5px 10px; color: var(--text); font-size: 12px;
-      outline: none; font-family: monospace;
-    }
+    /* Key banner */
+    #key-banner { display: flex; align-items: center; gap: 8px; padding: 8px 14px;
+      background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    #key-banner label { font-size: 11px; color: var(--muted); white-space: nowrap; }
+    #key-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      padding: 4px 9px; color: var(--text); font-size: 11px; outline: none; font-family: monospace; }
     #key-input:focus { border-color: var(--indigo); }
-    #key-save {
-      padding: 5px 12px; background: var(--indigo); color: #fff;
-      border: none; border-radius: 6px; font-size: 12px; cursor: pointer; white-space: nowrap;
-    }
-    #key-save:hover { background: var(--indigo-hover); }
+    #key-save { padding: 4px 11px; background: var(--indigo); color: #fff; border: none;
+      border-radius: 6px; font-size: 11px; cursor: pointer; white-space: nowrap; }
+    #key-save:hover { background: var(--indigo-h); }
 
     /* Header */
-    header {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; border-bottom: 1px solid var(--border);
-      background: rgba(15,23,42,0.92); backdrop-filter: blur(8px);
-      position: sticky; top: 0; z-index: 10; flex-shrink: 0;
-    }
-    .header-icon {
-      width: 36px; height: 36px; border-radius: 10px;
-      background: var(--indigo); display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-    }
-    .header-icon svg { width: 18px; height: 18px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-    header h1 { font-size: 15px; font-weight: 600; line-height: 1.2; }
-    header p  { font-size: 11px; color: var(--text-muted); }
+    header { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+      border-bottom: 1px solid var(--border); flex-shrink: 0; background: rgba(15,23,42,.92); }
+    .h-icon { width: 32px; height: 32px; border-radius: 9px; background: var(--indigo);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+    header h1 { font-size: 14px; font-weight: 600; }
+    #persona-subtitle { font-size: 11px; color: var(--muted); }
+
+    /* Persona selector */
+    #persona-strip { display: flex; gap: 7px; padding: 8px 12px; overflow-x: auto;
+      border-bottom: 1px solid var(--border); flex-shrink: 0; scrollbar-width: none; }
+    .p-btn { flex-shrink: 0; display: flex; align-items: center; gap: 7px; padding: 6px 10px;
+      border-radius: 11px; border: none; cursor: pointer; font-size: 11px; font-weight: 500;
+      transition: all .18s; background: var(--surface); color: var(--muted); }
+    .p-btn:hover { background: var(--surface2); color: var(--text); }
+    .p-btn.active { background: var(--indigo); color: #fff; transform: scale(1.04);
+      box-shadow: 0 4px 12px rgba(99,102,241,.35); }
+    .p-btn .emoji { font-size: 17px; line-height: 1; }
+    .p-btn .pname { font-weight: 600; line-height: 1.2; }
+    .p-btn .prole { font-size: 9px; opacity: .6; }
+
+    /* 3D Canvas */
+    #canvas-wrap { height: 200px; flex-shrink: 0; position: relative; overflow: hidden; }
+    #three-canvas { width: 100%; height: 100%; display: block; }
+    #state-badge { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; padding: 2px 9px; border-radius: 99px; font-weight: 600; letter-spacing: .05em;
+      text-transform: uppercase; pointer-events: none; transition: background .3s; }
 
     /* Chat */
-    #chat { flex: 1; overflow-y: auto; padding: 20px 16px; display: flex; flex-direction: column; gap: 16px; }
-
+    #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
     .msg-wrap { display: flex; flex-direction: column; }
-    .msg-wrap.user  { align-items: flex-end; }
-    .msg-wrap.ai    { align-items: flex-start; }
-
-    .bubble {
-      max-width: 80%; padding: 10px 14px; border-radius: 16px;
-      font-size: 14px; line-height: 1.55;
-    }
+    .msg-wrap.user { align-items: flex-end; }
+    .msg-wrap.ai   { align-items: flex-start; }
+    .bubble { max-width: 80%; padding: 9px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.55; }
     .user .bubble  { background: var(--indigo); color: #fff; border-bottom-right-radius: 4px; }
-    .ai  .bubble   { background: var(--surface); color: var(--text); border-top-left-radius: 4px; }
-
-    .ai-row { display: flex; align-items: flex-start; gap: 10px; }
-    .ai-avatar {
-      width: 28px; height: 28px; border-radius: 50%; background: var(--surface2);
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px;
-    }
-    .ai-avatar svg { width: 13px; height: 13px; stroke: var(--indigo-hover); fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-    .correction {
-      margin-top: 6px; max-width: 80%;
-      padding: 8px 12px; border-radius: 10px;
+    .ai   .bubble  { background: var(--surface); color: var(--text); border-top-left-radius: 4px; }
+    .ai-row { display: flex; align-items: flex-start; gap: 8px; }
+    .ai-av  { width: 24px; height: 24px; border-radius: 50%; background: var(--surface2);
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; font-size: 13px; }
+    .correction { margin-top: 5px; max-width: 80%; padding: 7px 11px; border-radius: 10px;
       background: var(--amber-bg); border: 1px solid var(--amber-border);
-      font-size: 12px; line-height: 1.5; color: var(--amber-text);
-    }
+      font-size: 11.5px; line-height: 1.5; color: var(--amber-text); }
     .correction strong { font-weight: 600; }
-
-    /* Typing indicator */
-    .typing { display: flex; align-items: flex-start; gap: 10px; }
-    .dots { display: flex; align-items: center; gap: 4px; padding: 12px 14px; background: var(--surface); border-radius: 16px; border-top-left-radius: 4px; }
-    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); animation: bounce 1.2s ease-in-out infinite; }
-    .dot:nth-child(2) { animation-delay: 0.2s; }
-    .dot:nth-child(3) { animation-delay: 0.4s; }
+    /* Typing dots */
+    .dots { display: flex; gap: 4px; padding: 11px 13px; background: var(--surface);
+      border-radius: 16px; border-top-left-radius: 4px; align-items: center; }
+    .dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+      animation: bounce 1.2s ease-in-out infinite; }
+    .dot:nth-child(2) { animation-delay: .2s; }
+    .dot:nth-child(3) { animation-delay: .4s; }
     @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
 
     /* Footer */
-    footer {
-      padding: 16px; border-top: 1px solid var(--border);
-      background: rgba(15,23,42,0.92); backdrop-filter: blur(8px);
-      display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0;
-    }
-    #status-text { font-size: 12px; color: var(--text-muted); }
-
-    /* Mic button */
-    #mic-btn {
-      width: 64px; height: 64px; border-radius: 50%; border: none; cursor: pointer;
-      display: flex; align-items: center; justify-content: center;
-      transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
-      position: relative; user-select: none; -webkit-user-select: none;
-      background: var(--indigo); box-shadow: 0 4px 20px rgba(99,102,241,0.4);
-    }
-    #mic-btn svg { width: 26px; height: 26px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-    #mic-btn:disabled { background: var(--surface2); box-shadow: none; cursor: not-allowed; opacity: 0.5; }
-    #mic-btn.recording { background: var(--red); transform: scale(1.1); box-shadow: 0 4px 24px rgba(239,68,68,0.5); }
-    #mic-btn.recording::before {
-      content: ""; position: absolute; inset: -10px; border-radius: 50%;
-      border: 2px solid var(--red); animation: pulse-ring 1.2s ease-out infinite;
-    }
-    @keyframes pulse-ring { 0%{transform:scale(1);opacity:.9} 100%{transform:scale(1.6);opacity:0} }
-    #mic-btn:not(.recording):not(:disabled):active { transform: scale(0.94); }
+    footer { padding: 14px; border-top: 1px solid var(--border); display: flex;
+      flex-direction: column; align-items: center; gap: 7px; flex-shrink: 0;
+      background: rgba(15,23,42,.92); }
+    #status-text { font-size: 11px; color: var(--muted); }
+    #mic-btn { width: 62px; height: 62px; border-radius: 50%; border: none; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; position: relative;
+      user-select: none; -webkit-user-select: none;
+      background: var(--indigo); box-shadow: 0 4px 18px rgba(99,102,241,.4);
+      transition: transform .15s, box-shadow .15s, background .15s; }
+    #mic-btn svg { width: 24px; height: 24px; stroke: #fff; fill: none; stroke-width: 2;
+      stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
+    #mic-btn:disabled { background: var(--surface2); box-shadow: none; cursor: not-allowed; opacity: .45; }
+    #mic-btn.recording { background: var(--red); transform: scale(1.1); box-shadow: 0 4px 22px rgba(239,68,68,.5); }
+    #mic-btn.recording::before { content: ""; position: absolute; inset: -10px; border-radius: 50%;
+      border: 2px solid var(--red); animation: pulse-ring 1.2s ease-out infinite; }
+    #mic-btn:not(.recording):not(:disabled):active { transform: scale(.94); }
+    @keyframes pulse-ring { 0%{transform:scale(1);opacity:.9} 100%{transform:scale(1.65);opacity:0} }
     .spin { animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -132,270 +107,621 @@
 <body>
 <div id="app">
   <div id="key-banner">
-    <label for="key-input">OpenAI API Key</label>
+    <label for="key-input">OpenAI Key</label>
     <input id="key-input" type="password" placeholder="sk-..." autocomplete="off" />
     <button id="key-save">Save</button>
   </div>
 
   <header>
-    <div class="header-icon">
-      <svg viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-    </div>
+    <div class="h-icon">📚</div>
     <div>
       <h1>English Tutor AI</h1>
-      <p>Talk about anything · 한국어도 OK · GPT-4o + Whisper + TTS</p>
+      <div id="persona-subtitle">Kai · 남성 튜터</div>
     </div>
   </header>
+
+  <div id="persona-strip"></div>
+
+  <div id="canvas-wrap">
+    <canvas id="three-canvas"></canvas>
+    <div id="state-badge" style="background:rgba(51,65,85,.6);color:#94a3b8">Idle</div>
+  </div>
 
   <div id="chat"></div>
 
   <footer>
     <span id="status-text">Hold to speak · 한국어도 OK</span>
     <button id="mic-btn" aria-label="Hold to speak">
-      <svg id="icon-mic" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-      <svg id="icon-micoff" viewBox="0 0 24 24" style="display:none"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12"/><path d="M5 10a7 7 0 0 0 12.93 3"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-      <svg id="icon-spin" viewBox="0 0 24 24" class="spin" style="display:none"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+      <svg id="icon-mic"    viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+      <svg id="icon-moff"   viewBox="0 0 24 24" style="display:none"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12"/><path d="M5 10a7 7 0 0 0 12.93 3"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+      <svg id="icon-spin"   viewBox="0 0 24 24" class="spin" style="display:none"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
     </button>
   </footer>
 </div>
-
 <audio id="tts-audio" style="display:none"></audio>
 
-<script>
-(function () {
-  const SYSTEM_PROMPT = `You are Kai, a warm and encouraging AI conversation partner helping Korean speakers improve their English through natural, flowing dialogue.
+<!-- Three.js via ESM CDN -->
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.167.1/build/three.module.js"}}</script>
+<script type="module">
+import * as THREE from 'three'
 
-**Language Policy:**
-- Always respond primarily in English to maximize the user's exposure to the language.
-- If the user speaks Korean, briefly acknowledge in Korean (one short sentence), then gently invite them to try saying it in English, and continue the conversation in English.
-- Never refuse to engage — always keep the conversation going regardless of what language they use.
+// ──────────────────────────────────────────────────────────────────────────────
+// PERSONA DEFINITIONS
+// ──────────────────────────────────────────────────────────────────────────────
+const PERSONAS = {
+  sunny: {
+    id:'sunny', name:'Sunny', emoji:'🌟', roleKo:'어린이 친구', voice:'fable',
+    greeting:"Hi hi hi! I'm Sunny! 🌟 What do you want to talk about today? Animals? 🐶 Games? 🎮 You pick!",
+    prompt:`You are Sunny, a super cheerful AI friend helping children learn English! 🌟
+Personality: Extremely enthusiastic. Use VERY simple words and short sentences. Use emojis often 🎉✨🌈
+Language: If child speaks Korean, acknowledge in 1 Korean sentence, then say it in English and invite repeat.
+Corrections: "That was great! A better way is: ..." — never harsh. null if Korean or perfect.
+Topics: animals, games, cartoons, food, colors, school, family, toys.
+Return ONLY valid JSON: {"correction":"...or null","reply":"your fun reply!"}`,
+    colors:{head:'#FFB300',eye:'#3D1A00',mouth:'#CC2200',rosy:'#FF8C8C',accessory:'#FF6B00',bgFrom:'#2D1800',bgTo:'#1A0F00'},
+    anim:{idleSpeed:2.8,idleAmp:.09,nodSpeed:3.8,blinkInterval:2.2,swayAmp:.06}
+  },
+  aria: {
+    id:'aria', name:'Aria', emoji:'🌸', roleKo:'여성 튜터', voice:'nova',
+    greeting:"Hello! I'm Aria. It's so lovely to meet you. 🌸 What's been on your mind lately?",
+    prompt:`You are Aria, a warm and nurturing English tutor.
+Language: Respond primarily in English. If user speaks Korean, acknowledge warmly in 1 Korean sentence, guide to English.
+Corrections: "That was lovely! You could also say: ..." null if Korean or perfect.
+Topics: lifestyle, culture, travel, food, fashion, relationships, self-improvement, health.
+Return ONLY valid JSON: {"correction":"...or null","reply":"your warm reply"}`,
+    colors:{head:'#C084FC',eye:'#3B0764',mouth:'#7C3AED',rosy:'#F0ABFC',accessory:'#EC4899',bgFrom:'#1A0030',bgTo:'#0D0020'},
+    anim:{idleSpeed:1.2,idleAmp:.04,nodSpeed:2.4,blinkInterval:3.8,swayAmp:.02}
+  },
+  kai: {
+    id:'kai', name:'Kai', emoji:'😎', roleKo:'남성 튜터', voice:'onyx',
+    greeting:"Hey! What's up? I'm Kai 😎 Ready to chat about literally anything — what's on your mind?",
+    prompt:`You are Kai, a cool and laid-back English-speaking friend.
+Language: Casual English. If user speaks Korean, quick Korean nod (1 sentence) then switch to English.
+Corrections: "Ha, close! Native speakers usually say: ..." null if Korean or perfect.
+Topics: sports, tech, gaming, pop culture, travel, music, movies, food.
+Return ONLY valid JSON: {"correction":"...or null","reply":"your chill reply"}`,
+    colors:{head:'#38BDF8',eye:'#0C4A6E',mouth:'#0369A1',rosy:null,accessory:'#0EA5E9',bgFrom:'#001A2D',bgTo:'#000D1A'},
+    anim:{idleSpeed:1.6,idleAmp:.05,nodSpeed:3.0,blinkInterval:3.0,swayAmp:.03}
+  },
+  sterling: {
+    id:'sterling', name:'Mr. Sterling', emoji:'💼', roleKo:'회사 상사', voice:'echo',
+    greeting:"Good day. I'm Mr. Sterling. We have limited time — let's use it productively. What business matter shall we address?",
+    prompt:`You are Mr. Sterling, a demanding Business English coach.
+Language: Always formal English. If user speaks Korean, acknowledge in 1 formal Korean sentence, insist on professional English.
+Corrections: "Incorrect. The professional phrasing is: ..." null if Korean or correct.
+Topics: business meetings, presentations, negotiations, emails, networking, leadership.
+Return ONLY valid JSON: {"correction":"...or null","reply":"your formal reply"}`,
+    colors:{head:'#94A3B8',eye:'#1E293B',mouth:'#475569',rosy:null,accessory:'#F59E0B',bgFrom:'#0A0F1A',bgTo:'#050810'},
+    anim:{idleSpeed:.7,idleAmp:.015,nodSpeed:1.8,blinkInterval:5.0,swayAmp:.005}
+  }
+}
+const PERSONA_ORDER = ['sunny','aria','kai','sterling']
 
-**Grammar Correction:**
-- If the user speaks English and makes grammatical errors or uses unnatural phrasing, set "correction" to a natural, encouraging alternative with a very brief note on why.
-- If their English is perfect, or if they spoke Korean, set "correction" to null.
-- Never be harsh — frame corrections as "A more natural way to say that would be…"
+// ──────────────────────────────────────────────────────────────────────────────
+// STATE
+// ──────────────────────────────────────────────────────────────────────────────
+let apiKey       = localStorage.getItem('oai_key') || ''
+let personaId    = 'kai'
+let history      = []
+let isRecording  = false
+let isProcessing = false
+let isSpeaking   = false
+let amplitude    = 0  // 0–1, updated by AudioContext analyser
+let mediaRecorder = null
+let audioChunks   = []
 
-**Conversation Style:**
-- Be warm, curious, and engaging — like a native English-speaking friend who genuinely enjoys talking.
-- Ask one open-ended follow-up question at the end of each reply to keep the conversation flowing.
-- Cover a wide range of everyday topics naturally: travel, food, movies, music, hobbies, work, culture, technology, etc.
-- Keep replies concise (2–3 sentences + one question). Don't lecture.
-- Occasionally weave in natural idioms or expressions, and subtly explain them if they seem unfamiliar.
+// AudioContext (set up once on first user gesture)
+let audioCtx     = null
+let analyser     = null
+let audioSrcReady = false
+let ampRaf       = null
 
-**Response format — always return valid JSON with exactly these two keys:**
-{
-  "correction": "Natural, encouraging correction if the user made English errors — otherwise null",
-  "reply": "Your conversational English response (brief Korean support only when essential)"
-}`;
+// ──────────────────────────────────────────────────────────────────────────────
+// DOM REFS
+// ──────────────────────────────────────────────────────────────────────────────
+const keyInput      = document.getElementById('key-input')
+const keySave       = document.getElementById('key-save')
+const personaStrip  = document.getElementById('persona-strip')
+const personaSub    = document.getElementById('persona-subtitle')
+const chat          = document.getElementById('chat')
+const statusText    = document.getElementById('status-text')
+const micBtn        = document.getElementById('mic-btn')
+const iconMic       = document.getElementById('icon-mic')
+const iconMoff      = document.getElementById('icon-moff')
+const iconSpin      = document.getElementById('icon-spin')
+const ttsAudio      = document.getElementById('tts-audio')
+const stateBadge    = document.getElementById('state-badge')
+const canvasEl      = document.getElementById('three-canvas')
+const canvasWrap    = document.getElementById('canvas-wrap')
 
-  let apiKey = localStorage.getItem("oai_key") || "";
-  let isRecording = false;
-  let isProcessing = false;
-  let mediaRecorder = null;
-  let audioChunks = [];
-  // Conversation history for GPT-4o context
-  let history = [];
+// ──────────────────────────────────────────────────────────────────────────────
+// THREE.JS SETUP
+// ──────────────────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, alpha: true, antialias: true })
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+renderer.shadowMap.enabled = true
 
-  const chat       = document.getElementById("chat");
-  const micBtn     = document.getElementById("mic-btn");
-  const statusText = document.getElementById("status-text");
-  const keyInput   = document.getElementById("key-input");
-  const keySave    = document.getElementById("key-save");
-  const ttsAudio   = document.getElementById("tts-audio");
-  const iconMic    = document.getElementById("icon-mic");
-  const iconMicOff = document.getElementById("icon-micoff");
-  const iconSpin   = document.getElementById("icon-spin");
+const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100)
+camera.position.set(0, 0, 3.3)
 
-  if (apiKey) keyInput.value = apiKey;
-  appendAI("Hey! I'm Kai, your English conversation partner. Hold the mic and start talking — any topic, any time. 😊 What's been on your mind lately?");
+const scene = new THREE.Scene()
 
-  keySave.addEventListener("click", () => {
-    const val = keyInput.value.trim();
-    if (!val) { alert("Please enter your OpenAI API key."); return; }
-    apiKey = val;
-    localStorage.setItem("oai_key", val);
-    keySave.textContent = "Saved ✓";
-    setTimeout(() => (keySave.textContent = "Save"), 1500);
-  });
+// Lights
+const ambientLight = new THREE.AmbientLight('#ffffff', 0.7)
+scene.add(ambientLight)
+const dirLight = new THREE.DirectionalLight('#ffffff', 1.3)
+dirLight.position.set(2, 4, 5)
+dirLight.castShadow = true
+scene.add(dirLight)
+const fillLight = new THREE.PointLight('#ffffff', 0.5, 20)
+fillLight.position.set(-3, -2, 2)
+scene.add(fillLight)
+const rimLight = new THREE.PointLight('#ffffff', 0.2, 20)
+rimLight.position.set(3, 3, -2)
+scene.add(rimLight)
 
-  micBtn.addEventListener("pointerdown", (e) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    startRecording();
-  });
-  micBtn.addEventListener("pointerup", stopRecording);
-  micBtn.addEventListener("pointerleave", stopRecording);
+// Character group
+const charGroup = new THREE.Group()
+scene.add(charGroup)
 
-  async function startRecording() {
-    if (isProcessing || isRecording) return;
-    if (!apiKey) { alert("Please save your OpenAI API key first."); return; }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus" : "audio/webm";
-      mediaRecorder = new MediaRecorder(stream, { mimeType });
-      audioChunks = [];
-      mediaRecorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunks.push(e.data); };
-      mediaRecorder.start(100);
-      isRecording = true;
-      setUI("recording");
-    } catch {
-      alert("Microphone access denied. Please allow microphone access and try again.");
+// Meshes (created once, updated on persona change)
+let headMesh, mouthMesh, eyeLMesh, eyeRMesh, browLMesh, browRMesh
+let roseL, roseR, accessoryGroup
+const timeObj = { t: 0, blink: Math.random() * 3 + 2 }
+
+function buildCharacter(pid) {
+  const p = PERSONAS[pid]
+  const c = p.colors
+
+  // Clear
+  while (charGroup.children.length) charGroup.remove(charGroup.children[0])
+
+  // Head
+  headMesh = new THREE.Mesh(
+    new THREE.SphereGeometry(1, 64, 64),
+    new THREE.MeshStandardMaterial({
+      color: c.head,
+      roughness: pid === 'sterling' ? 0.7 : 0.22,
+      metalness: pid === 'sterling' ? 0.15 : 0
+    })
+  )
+  headMesh.castShadow = true
+  charGroup.add(headMesh)
+
+  // Rosy cheeks
+  roseL = roseR = null
+  if (c.rosy) {
+    const roseMat = new THREE.MeshStandardMaterial({ color: c.rosy, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
+    roseL = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), roseMat)
+    roseR = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), roseMat.clone())
+    roseL.position.set(-0.6, 0.05, 0.78); roseL.rotation.y =  0.65
+    roseR.position.set( 0.6, 0.05, 0.78); roseR.rotation.y = -0.65
+    charGroup.add(roseL, roseR)
+  }
+
+  const eyeMat  = new THREE.MeshStandardMaterial({ color: 'white', roughness: 0.08 })
+  const pupMat  = new THREE.MeshStandardMaterial({ color: c.eye })
+  const shineMat = new THREE.MeshStandardMaterial({ color: 'white', emissive: 'white', emissiveIntensity: 1 })
+  const eyeGeo  = new THREE.SphereGeometry(0.188, 32, 32)
+  const pupGeo  = new THREE.SphereGeometry(0.093, 16, 16)
+  const shineGeo= new THREE.SphereGeometry(0.032, 8, 8)
+
+  eyeLMesh = new THREE.Mesh(eyeGeo, eyeMat)
+  eyeLMesh.position.set(-0.29, 0.21, 0.951)
+  charGroup.add(eyeLMesh)
+  const pupL = new THREE.Mesh(pupGeo, pupMat)
+  pupL.position.set(-0.29, 0.21, 0.972)
+  charGroup.add(pupL)
+  const shineL = new THREE.Mesh(shineGeo, shineMat)
+  shineL.position.set(-0.265, 0.235, 0.988)
+  charGroup.add(shineL)
+
+  eyeRMesh = new THREE.Mesh(eyeGeo, eyeMat.clone())
+  eyeRMesh.position.set(0.29, 0.21, 0.951)
+  charGroup.add(eyeRMesh)
+  const pupR = new THREE.Mesh(pupGeo, pupMat.clone())
+  pupR.position.set(0.29, 0.21, 0.972)
+  charGroup.add(pupR)
+  const shineR = new THREE.Mesh(shineGeo, shineMat.clone())
+  shineR.position.set(0.315, 0.235, 0.988)
+  charGroup.add(shineR)
+
+  // Eyebrows
+  const browMat = new THREE.MeshStandardMaterial({ color: c.eye })
+  const browW = pid === 'sterling' ? 0.36 : 0.3
+  const browAngle = pid === 'sterling' ? 0.38 : 0.16
+  browLMesh = new THREE.Mesh(new THREE.BoxGeometry(browW, 0.062, 0.055), browMat)
+  browLMesh.position.set(-0.29, 0.52, 0.951)
+  browLMesh.rotation.z =  browAngle
+  charGroup.add(browLMesh)
+  browRMesh = new THREE.Mesh(new THREE.BoxGeometry(browW, 0.062, 0.055), browMat.clone())
+  browRMesh.position.set( 0.29, 0.52, 0.951)
+  browRMesh.rotation.z = -browAngle
+  charGroup.add(browRMesh)
+
+  // Mouth
+  mouthMesh = new THREE.Mesh(
+    new THREE.CircleGeometry(0.27, 32),
+    new THREE.MeshStandardMaterial({ color: c.mouth, side: THREE.DoubleSide })
+  )
+  mouthMesh.position.set(0, -0.27, 0.963)
+  mouthMesh.scale.y = 0.06
+  charGroup.add(mouthMesh)
+
+  // Accessory
+  accessoryGroup = new THREE.Group()
+  charGroup.add(accessoryGroup)
+  buildAccessory(pid, c.accessory)
+
+  // Fill light color
+  fillLight.color.set(c.head)
+
+  // Canvas background
+  canvasWrap.style.background = `radial-gradient(ellipse at 50% 60%, ${c.bgFrom} 0%, #0a0f1a 100%)`
+
+  timeObj.blink = Math.random() * 3 + 2
+  charGroup.position.set(0, 0, 0)
+  charGroup.rotation.set(0, 0, 0)
+}
+
+function buildAccessory(pid, color) {
+  while (accessoryGroup.children.length) accessoryGroup.remove(accessoryGroup.children[0])
+  const mat = (extra = {}) => new THREE.MeshStandardMaterial({ color, ...extra })
+
+  if (pid === 'sunny') {
+    const star = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.44, 5), mat({ emissive: color, emissiveIntensity: 0.4 }))
+    star.position.set(0, 1.18, 0)
+    accessoryGroup.add(star)
+  } else if (pid === 'aria') {
+    const bun = new THREE.Mesh(new THREE.SphereGeometry(0.33, 32, 32), mat({ roughness: 0.45 }))
+    bun.position.set(0.36, 1.02, -0.08)
+    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), new THREE.MeshStandardMaterial({ color:'#fff', emissive:'#fff', emissiveIntensity:.6 }))
+    dot.position.set(0.36, 1.02, 0.22)
+    accessoryGroup.add(bun, dot)
+  } else if (pid === 'kai') {
+    [[-.28,1.12,.28,0.5,0,-.35],[.08,1.17,.22,.3,0,.12],[.36,1.04,.12,.2,0,.32]].forEach(([x,y,z,rx,ry,rz]) => {
+      const h = new THREE.Mesh(new THREE.CylinderGeometry(.09,.14,.38,8), mat({ roughness:.4 }))
+      h.position.set(x,y,z); h.rotation.set(rx,ry,rz)
+      accessoryGroup.add(h)
+    })
+  } else if (pid === 'sterling') {
+    const torusMat = mat({ metalness:.9, roughness:.1 })
+    const geoT = new THREE.TorusGeometry(0.17, 0.026, 8, 32)
+    const l = new THREE.Mesh(geoT, torusMat); l.position.set(-.3,.18,.97)
+    const r = new THREE.Mesh(geoT, torusMat.clone()); r.position.set(.3,.18,.97)
+    const br= new THREE.Mesh(new THREE.BoxGeometry(.24,.026,.026), torusMat.clone()); br.position.set(0,.18,.97)
+    accessoryGroup.add(l, r, br)
+  }
+}
+
+// Resize
+function onResize() {
+  const w = canvasWrap.clientWidth, h = canvasWrap.clientHeight
+  renderer.setSize(w, h)
+  camera.aspect = w / h
+  camera.updateProjectionMatrix()
+}
+new ResizeObserver(onResize).observe(canvasWrap)
+onResize()
+
+// ─── Animation loop ──────────────────────────────────────────────────────────
+const clock = new THREE.Clock()
+
+function charState() {
+  return isSpeaking ? 'speaking' : isProcessing ? 'thinking' : isRecording ? 'listening' : 'idle'
+}
+
+function animate() {
+  requestAnimationFrame(animate)
+  const delta = clock.getDelta()
+  timeObj.t += delta
+  const t = timeObj.t
+  const amp = Math.min(Math.max(amplitude, 0), 1)
+  const state = charState()
+  const anim  = PERSONAS[personaId].anim
+
+  if (!mouthMesh) return
+
+  // Mouth
+  const targetY = state === 'speaking' ? 0.15 + amp * 0.72 : 0.06
+  mouthMesh.scale.y += (targetY - mouthMesh.scale.y) * 0.22
+
+  // Eyebrows
+  const browY = state==='speaking' ? 0.53+amp*0.08 : state==='thinking' ? 0.57 : state==='listening' ? 0.50 : 0.52
+  browLMesh.position.y += (browY - browLMesh.position.y) * 0.1
+  browRMesh.position.y += (browY - browRMesh.position.y) * 0.1
+
+  // Blink
+  timeObj.blink -= delta
+  if (timeObj.blink <= 0) timeObj.blink = anim.blinkInterval + Math.random() * 2.5
+  const blinkOpen = timeObj.blink > 0.12 ? 1 : Math.sin((timeObj.blink / 0.12) * Math.PI)
+  eyeLMesh.scale.y = Math.max(0.06, blinkOpen)
+  eyeRMesh.scale.y = Math.max(0.06, blinkOpen)
+
+  // Head motion
+  if (state === 'idle') {
+    charGroup.position.y = Math.sin(t * anim.idleSpeed) * anim.idleAmp
+    charGroup.rotation.y = Math.sin(t * 0.55) * anim.swayAmp * 2
+    charGroup.rotation.x += (0 - charGroup.rotation.x) * 0.05
+    charGroup.rotation.z += (0 - charGroup.rotation.z) * 0.05
+  } else if (state === 'listening') {
+    charGroup.rotation.x += (-0.11 - charGroup.rotation.x) * 0.04
+    charGroup.rotation.z += (0.04 - charGroup.rotation.z) * 0.04
+    charGroup.position.y += (0.04 - charGroup.position.y) * 0.04
+  } else if (state === 'thinking') {
+    charGroup.rotation.z += (0.2 - charGroup.rotation.z) * 0.03
+    charGroup.rotation.x += (-0.04 - charGroup.rotation.x) * 0.03
+    charGroup.position.y = Math.sin(t * 0.9) * 0.025
+  } else if (state === 'speaking') {
+    charGroup.rotation.x = Math.sin(t * anim.nodSpeed) * amp * 0.065
+    charGroup.rotation.z = Math.sin(t * 1.3) * anim.swayAmp
+    charGroup.position.y = Math.sin(t * 2.5) * amp * 0.028
+  }
+
+  // Accessory animation (Sunny star spins)
+  if (personaId === 'sunny' && accessoryGroup.children[0]) {
+    accessoryGroup.children[0].rotation.z = Math.sin(t * 2.5) * 0.25
+  }
+
+  renderer.render(scene, camera)
+}
+animate()
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PERSONA SELECTOR UI
+// ──────────────────────────────────────────────────────────────────────────────
+function buildPersonaStrip() {
+  personaStrip.innerHTML = ''
+  PERSONA_ORDER.forEach(id => {
+    const p = PERSONAS[id]
+    const btn = document.createElement('button')
+    btn.className = 'p-btn' + (id === personaId ? ' active' : '')
+    btn.dataset.id = id
+    btn.innerHTML = `<span class="emoji">${p.emoji}</span><div><div class="pname">${p.name}</div><div class="prole">${p.roleKo}</div></div>`
+    btn.addEventListener('click', () => switchPersona(id))
+    personaStrip.appendChild(btn)
+  })
+}
+
+function switchPersona(id) {
+  if (id === personaId) { resetConversation(); return; }
+  stopAmplitude(); isSpeaking = false
+  ttsAudio.pause(); ttsAudio.src = ''
+  personaId = id
+  buildCharacter(id)
+  buildPersonaStrip()
+  personaSub.textContent = `${PERSONAS[id].name} · ${PERSONAS[id].roleKo}`
+  history = []
+  updateUI()
+  chat.innerHTML = ''
+  appendAI(PERSONAS[id].greeting)
+}
+
+function resetConversation() {
+  history = []
+  chat.innerHTML = ''
+  appendAI(PERSONAS[personaId].greeting)
+}
+
+buildCharacter('kai')
+buildPersonaStrip()
+appendAI(PERSONAS['kai'].greeting)
+
+// ──────────────────────────────────────────────────────────────────────────────
+// KEY SAVE
+// ──────────────────────────────────────────────────────────────────────────────
+if (apiKey) keyInput.value = apiKey
+keySave.addEventListener('click', () => {
+  const v = keyInput.value.trim()
+  if (!v) { alert('Please enter your OpenAI API key.'); return }
+  apiKey = v; localStorage.setItem('oai_key', v)
+  keySave.textContent = 'Saved ✓'
+  setTimeout(() => keySave.textContent = 'Save', 1500)
+})
+
+// ──────────────────────────────────────────────────────────────────────────────
+// AUDIO CONTEXT (amplitude tracking)
+// ──────────────────────────────────────────────────────────────────────────────
+function initAudioCtx() {
+  if (audioSrcReady) return
+  try {
+    audioCtx  = new AudioContext()
+    analyser  = audioCtx.createAnalyser()
+    analyser.fftSize = 256
+    const src = audioCtx.createMediaElementSource(ttsAudio)
+    src.connect(analyser)
+    analyser.connect(audioCtx.destination)
+    audioSrcReady = true
+  } catch(e) { console.warn('AudioContext:', e) }
+}
+
+function startAmplitude() {
+  if (!analyser) return
+  const data = new Uint8Array(analyser.frequencyBinCount)
+  function tick() {
+    analyser.getByteFrequencyData(data)
+    amplitude = data.reduce((a,b)=>a+b,0) / data.length / 128
+    ampRaf = requestAnimationFrame(tick)
+  }
+  tick()
+}
+
+function stopAmplitude() {
+  if (ampRaf) cancelAnimationFrame(ampRaf)
+  ampRaf = null; amplitude = 0
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// RECORDING
+// ──────────────────────────────────────────────────────────────────────────────
+async function startRecording() {
+  if (isProcessing || isSpeaking || isRecording) return
+  if (!apiKey) { alert('Please save your OpenAI API key first.'); return }
+  initAudioCtx()
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
+    mediaRecorder = new MediaRecorder(stream, { mimeType: mime })
+    audioChunks = []
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data) }
+    mediaRecorder.start(100)
+    isRecording = true; updateUI()
+  } catch { alert('Microphone access denied.') }
+}
+
+function stopRecording() {
+  if (!isRecording || !mediaRecorder) return
+  isRecording = false
+  mediaRecorder.onstop = async () => {
+    const mime = mediaRecorder.mimeType
+    const blob = new Blob(audioChunks, { type: mime })
+    mediaRecorder.stream.getTracks().forEach(t => t.stop())
+    mediaRecorder = null
+    if (blob.size >= 1000) await pipeline(blob, mime)
+    else updateUI()
+  }
+  mediaRecorder.stop()
+  updateUI()
+}
+
+micBtn.addEventListener('pointerdown', e => { e.currentTarget.setPointerCapture(e.pointerId); startRecording() })
+micBtn.addEventListener('pointerup',   stopRecording)
+micBtn.addEventListener('pointerleave',stopRecording)
+
+// ──────────────────────────────────────────────────────────────────────────────
+// PIPELINE
+// ──────────────────────────────────────────────────────────────────────────────
+async function pipeline(blob, mime) {
+  isProcessing = true; updateUI()
+  const typingEl = appendTyping()
+  try {
+    // Whisper
+    const ext = mime.includes('mp4') ? 'm4a' : 'webm'
+    const fd  = new FormData()
+    fd.append('file', blob, `rec.${ext}`)
+    fd.append('model', 'whisper-1')
+    const sttRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: fd
+    })
+    if (!sttRes.ok) throw new Error(`Whisper ${sttRes.status}: ${await sttRes.text()}`)
+    const { text: transcript } = await sttRes.json()
+    if (!transcript?.trim()) throw new Error('Could not transcribe. Please speak more clearly.')
+
+    // GPT-4o
+    const msgs = [
+      { role:'system', content: PERSONAS[personaId].prompt },
+      ...history.slice(-20),
+      { role:'user', content: transcript }
+    ]
+    const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:'gpt-4o', response_format:{ type:'json_object' }, temperature: personaId==='sterling'?.6:.8, max_tokens:400, messages: msgs })
+    })
+    if (!chatRes.ok) throw new Error(`GPT-4o ${chatRes.status}: ${await chatRes.text()}`)
+    const cd  = await chatRes.json()
+    const parsed = JSON.parse(cd.choices[0].message.content)
+    const correction = parsed.correction ?? null
+    const reply      = parsed.reply ?? "Sorry, couldn't reply."
+
+    // TTS
+    const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
+      method: 'POST',
+      headers: { Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:'tts-1', voice: PERSONAS[personaId].voice, input: reply, response_format:'mp3' })
+    })
+    if (!ttsRes.ok) throw new Error(`TTS ${ttsRes.status}: ${await ttsRes.text()}`)
+    const audioBuf = await ttsRes.arrayBuffer()
+    const audioUrl = URL.createObjectURL(new Blob([audioBuf], { type:'audio/mpeg' }))
+
+    typingEl.remove()
+    appendUser(transcript, correction)
+    appendAI(reply)
+    history.push({ role:'user', content:transcript })
+    history.push({ role:'assistant', content:reply })
+
+    isProcessing = false
+    isSpeaking   = true
+    updateUI()
+    startAmplitude()
+
+    ttsAudio.src = audioUrl
+    audioCtx?.resume()
+    ttsAudio.play()
+    ttsAudio.onended = () => {
+      stopAmplitude(); isSpeaking = false
+      URL.revokeObjectURL(audioUrl); updateUI()
     }
+  } catch(err) {
+    typingEl.remove()
+    appendAI(`⚠️ ${err.message}`)
+    isProcessing = false; updateUI()
   }
+}
 
-  function stopRecording() {
-    if (!isRecording || !mediaRecorder) return;
-    isRecording = false;
-    mediaRecorder.onstop = async () => {
-      const mimeType = mediaRecorder.mimeType;
-      const blob = new Blob(audioChunks, { type: mimeType });
-      mediaRecorder.stream.getTracks().forEach((t) => t.stop());
-      mediaRecorder = null;
-      if (blob.size < 1000) { setUI("idle"); return; }
-      await pipeline(blob, mimeType);
-    };
-    mediaRecorder.stop();
+// ──────────────────────────────────────────────────────────────────────────────
+// UI HELPERS
+// ──────────────────────────────────────────────────────────────────────────────
+function updateUI() {
+  const state = charState()
+  micBtn.disabled = isProcessing || isSpeaking
+  micBtn.classList.toggle('recording', isRecording)
+  iconMic.style.display  = (!isRecording && !isProcessing && !isSpeaking) ? '' : 'none'
+  iconMoff.style.display = isRecording ? '' : 'none'
+  iconSpin.style.display = (isProcessing || isSpeaking) ? '' : 'none'
+  statusText.textContent =
+    isRecording  ? 'Release to send' :
+    isProcessing ? 'Processing…' :
+    isSpeaking   ? `${PERSONAS[personaId].name} is speaking…` :
+    'Hold to speak · 한국어도 OK'
+
+  const badgeStyle = {
+    speaking:  { bg:'rgba(99,102,241,.8)',  color:'#fff',     label:'Speaking'  },
+    listening: { bg:'rgba(239,68,68,.8)',   color:'#fff',     label:'Listening' },
+    thinking:  { bg:'rgba(217,119,6,.8)',   color:'#fff',     label:'Thinking…' },
+    idle:      { bg:'rgba(51,65,85,.6)',    color:'#94a3b8',  label:'Idle'      },
+  }[state]
+  stateBadge.style.background = badgeStyle.bg
+  stateBadge.style.color      = badgeStyle.color
+  stateBadge.textContent      = badgeStyle.label
+}
+
+function charState() {
+  return isSpeaking ? 'speaking' : isProcessing ? 'thinking' : isRecording ? 'listening' : 'idle'
+}
+
+function appendUser(text, correction) {
+  const w = document.createElement('div')
+  w.className = 'msg-wrap user'
+  w.innerHTML = `<div class="bubble">${esc(text)}</div>`
+  if (correction) {
+    const c = document.createElement('div')
+    c.className = 'correction'
+    c.innerHTML = `<strong>💡 More natural: </strong>${esc(correction)}`
+    w.appendChild(c)
   }
+  chat.appendChild(w); scrollChat()
+}
 
-  async function pipeline(audioBlob, mimeType) {
-    setUI("processing");
-    const typingEl = appendTyping();
-    try {
-      /* Step 1 – Whisper STT (no forced language → Korean OK too) */
-      const ext = mimeType.includes("mp4") ? "m4a" : "webm";
-      const formData = new FormData();
-      formData.append("file", audioBlob, `recording.${ext}`);
-      formData.append("model", "whisper-1");
+function appendAI(text) {
+  const w = document.createElement('div')
+  w.className = 'msg-wrap ai'
+  w.innerHTML = `<div class="ai-row"><div class="ai-av">${PERSONAS[personaId].emoji}</div><div class="bubble">${esc(text)}</div></div>`
+  chat.appendChild(w); scrollChat()
+}
 
-      const sttRes = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: formData,
-      });
-      if (!sttRes.ok) throw new Error(`Whisper error ${sttRes.status}: ${await sttRes.text()}`);
-      const { text: transcript } = await sttRes.json();
-      if (!transcript || !transcript.trim()) throw new Error("Could not transcribe audio. Please speak more clearly.");
+function appendTyping() {
+  const w = document.createElement('div')
+  w.className = 'msg-wrap ai'
+  w.innerHTML = `<div class="ai-row"><div class="ai-av">${PERSONAS[personaId].emoji}</div><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`
+  chat.appendChild(w); scrollChat()
+  return w
+}
 
-      /* Step 2 – GPT-4o with full history */
-      const messages = [
-        { role: "system", content: SYSTEM_PROMPT },
-        // Cap at last 20 turns to stay within token budget
-        ...history.slice(-20),
-        { role: "user", content: transcript },
-      ];
+function scrollChat() { chat.scrollTop = chat.scrollHeight }
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
 
-      const chatRes = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          response_format: { type: "json_object" },
-          temperature: 0.8,
-          max_tokens: 400,
-          messages,
-        }),
-      });
-      if (!chatRes.ok) throw new Error(`GPT-4o error ${chatRes.status}: ${await chatRes.text()}`);
-      const chatData = await chatRes.json();
-      const parsed = JSON.parse(chatData.choices[0].message.content);
-      const correction = parsed.correction ?? null;
-      const reply = parsed.reply ?? "Sorry, I couldn't generate a reply.";
-
-      /* Step 3 – TTS */
-      const ttsRes = await fetch("https://api.openai.com/v1/audio/speech", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ model: "tts-1", voice: "alloy", input: reply, response_format: "mp3" }),
-      });
-      if (!ttsRes.ok) throw new Error(`TTS error ${ttsRes.status}: ${await ttsRes.text()}`);
-      const audioBuffer = await ttsRes.arrayBuffer();
-      const audioUrl = URL.createObjectURL(new Blob([audioBuffer], { type: "audio/mpeg" }));
-
-      /* Render */
-      typingEl.remove();
-      appendUser(transcript, correction);
-      appendAI(reply);
-
-      /* Update history */
-      history.push({ role: "user", content: transcript });
-      history.push({ role: "assistant", content: reply });
-
-      /* Auto-play */
-      ttsAudio.src = audioUrl;
-      ttsAudio.play();
-      ttsAudio.onended = () => URL.revokeObjectURL(audioUrl);
-
-    } catch (err) {
-      typingEl.remove();
-      appendAI(`⚠️ ${err.message}`);
-    } finally {
-      setUI("idle");
-    }
-  }
-
-  function setUI(state) {
-    isProcessing = state === "processing";
-    isRecording  = state === "recording";
-    micBtn.disabled = isProcessing;
-    micBtn.classList.toggle("recording", state === "recording");
-    iconMic.style.display    = state === "idle"       ? "" : "none";
-    iconMicOff.style.display = state === "recording"  ? "" : "none";
-    iconSpin.style.display   = state === "processing" ? "" : "none";
-    statusText.textContent =
-      state === "recording"  ? "Release to send"         :
-      state === "processing" ? "Processing…"              :
-                               "Hold to speak · 한국어도 OK";
-  }
-
-  function appendUser(text, correction) {
-    const wrap = document.createElement("div");
-    wrap.className = "msg-wrap user";
-    wrap.innerHTML = `<div class="bubble">${escHtml(text)}</div>`;
-    if (correction) {
-      const c = document.createElement("div");
-      c.className = "correction";
-      c.innerHTML = `<strong>💡 More natural: </strong>${escHtml(correction)}`;
-      wrap.appendChild(c);
-    }
-    chat.appendChild(wrap);
-    scrollBottom();
-  }
-
-  function appendAI(text) {
-    const wrap = document.createElement("div");
-    wrap.className = "msg-wrap ai";
-    wrap.innerHTML = `
-      <div class="ai-row">
-        <div class="ai-avatar">
-          <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        </div>
-        <div class="bubble">${escHtml(text)}</div>
-      </div>`;
-    chat.appendChild(wrap);
-    scrollBottom();
-  }
-
-  function appendTyping() {
-    const wrap = document.createElement("div");
-    wrap.className = "msg-wrap ai";
-    wrap.innerHTML = `
-      <div class="typing">
-        <div class="ai-avatar">
-          <svg viewBox="0 0 24 24"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
-        </div>
-        <div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
-      </div>`;
-    chat.appendChild(wrap);
-    scrollBottom();
-    return wrap;
-  }
-
-  function scrollBottom() { chat.scrollTop = chat.scrollHeight; }
-
-  function escHtml(str) {
-    return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
-  }
-})();
+updateUI()
 </script>
 </body>
 </html>
