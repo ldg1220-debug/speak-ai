@@ -38,18 +38,18 @@
     header h1 { font-size: 14px; font-weight: 600; }
     #persona-subtitle { font-size: 11px; color: var(--muted); }
 
-    /* Persona selector */
-    #persona-strip { display: flex; gap: 7px; padding: 8px 12px; overflow-x: auto;
-      border-bottom: 1px solid var(--border); flex-shrink: 0; scrollbar-width: none; }
-    .p-btn { flex-shrink: 0; display: flex; align-items: center; gap: 7px; padding: 6px 10px;
-      border-radius: 11px; border: none; cursor: pointer; font-size: 11px; font-weight: 500;
-      transition: all .18s; background: var(--surface); color: var(--muted); }
+    /* Persona selector — 4-column grid so all personas always visible */
+    #persona-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .p-btn { display: flex; flex-direction: column; align-items: center; gap: 3px;
+      padding: 8px 4px; border-radius: 12px; border: none; cursor: pointer;
+      transition: all .18s; background: var(--surface); color: var(--muted); text-align: center; }
     .p-btn:hover { background: var(--surface2); color: var(--text); }
-    .p-btn.active { background: var(--indigo); color: #fff; transform: scale(1.04);
+    .p-btn.active { background: var(--indigo); color: #fff; transform: scale(1.05);
       box-shadow: 0 4px 12px rgba(99,102,241,.35); }
-    .p-btn .emoji { font-size: 17px; line-height: 1; }
-    .p-btn .pname { font-weight: 600; line-height: 1.2; }
-    .p-btn .prole { font-size: 9px; opacity: .6; }
+    .p-btn .emoji { font-size: 22px; line-height: 1; }
+    .p-btn .pname { font-size: 11px; font-weight: 600; line-height: 1.2; }
+    .p-btn .prole { font-size: 9px; opacity: .6; line-height: 1.2; }
 
     /* 3D Canvas */
     #canvas-wrap { height: 200px; flex-shrink: 0; position: relative; overflow: hidden; }
