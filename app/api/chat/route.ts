@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { PERSONAS, DEFAULT_PERSONA, PersonaId } from "@/lib/personas";
+import { getTopicById } from "@/lib/topics";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "No audio file provided." }, { status: 400 });
   }
 
-  // Resolve persona
+  // Persona
   const rawPersonaId = formData.get("personaId");
   const personaId: PersonaId =
     typeof rawPersonaId === "string" && rawPersonaId in PERSONAS
@@ -31,24 +32,43 @@ export async function POST(req: NextRequest) {
       : DEFAULT_PERSONA;
   const persona = PERSONAS[personaId];
 
-  // Parse conversation history
+  // Topic
+  const topicId = formData.get("topicId");
+  const topic = getTopicById(typeof topicId === "string" ? topicId : null);
+
+  // Conversation history
   let history: HistoryMessage[] = [];
   const historyRaw = formData.get("history");
   if (typeof historyRaw === "string") {
     try { history = JSON.parse(historyRaw); } catch { /* ignore */ }
   }
 
-  // ── Step 1: Whisper STT ──────────────────────────────────────────────────
+  // ── Step 1: Whisper STT (verbose_json for pronunciation score) ────────────
   let transcript: string;
+  let pronunciationScore: number | null = null;
+  let detectedLanguage = "en";
   try {
     const fileName = (audioFile as File).name ?? "recording.webm";
     const file = new File([audioFile], fileName, { type: audioFile.type });
+
     const stt = await openai.audio.transcriptions.create({
       model: "whisper-1",
       file,
-      // No forced language — supports Korean + English
+      response_format: "verbose_json",
+      timestamp_granularities: ["segment"],
     });
-    transcript = stt.text.trim();
+
+    transcript     = stt.text.trim();
+    detectedLanguage = stt.language ?? "en";
+
+    // Pronunciation score only for English speech
+    if (detectedLanguage === "en" && stt.segments && stt.segments.length > 0) {
+      const avgLogProb =
+        stt.segments.reduce((sum, seg) => sum + seg.avg_logprob, 0) /
+        stt.segments.length;
+      // avg_logprob: 0 = perfect, -1 = poor. Map to 0–100.
+      pronunciationScore = Math.min(100, Math.max(0, Math.round((1 + avgLogProb) * 100)));
+    }
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Whisper STT failed." },
@@ -63,12 +83,17 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Step 2: GPT-4o with persona prompt + history ─────────────────────────
+  // ── Step 2: GPT-4o with persona + topic ──────────────────────────────────
+  // Append topic hint to the system prompt if a topic is selected
+  const systemPrompt = topic
+    ? `${persona.systemPrompt}\n\n**Current topic focus:** ${topic.promptHint}`
+    : persona.systemPrompt;
+
   let correction: string | null = null;
   let reply: string;
   try {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: "system", content: persona.systemPrompt },
+      { role: "system", content: systemPrompt },
       ...history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: transcript },
     ];
@@ -94,7 +119,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Step 3: TTS with persona voice ───────────────────────────────────────
+  // ── Step 3: TTS ───────────────────────────────────────────────────────────
   let audioBase64: string;
   try {
     const tts = await openai.audio.speech.create({
@@ -111,5 +136,12 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  return NextResponse.json({ transcript, correction, reply, audio: audioBase64 });
+  return NextResponse.json({
+    transcript,
+    correction,
+    reply,
+    audio: audioBase64,
+    pronunciationScore,
+    language: detectedLanguage,
+  });
 }
