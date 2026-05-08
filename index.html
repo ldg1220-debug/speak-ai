@@ -7,521 +7,537 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #0f172a; --surface: #1e293b; --surface2: #334155; --border: #334155;
-      --text: #f1f5f9; --muted: #94a3b8;
-      --indigo: #6366f1; --indigo-h: #818cf8; --red: #ef4444;
-      --amber-bg: rgba(245,158,11,.12); --amber-border: rgba(245,158,11,.3); --amber-text: #fcd34d;
+      --bg: #0f172a; --sur: #1e293b; --sur2: #334155; --bdr: #334155;
+      --txt: #f1f5f9; --mut: #94a3b8;
+      --ind: #6366f1; --ind-h: #818cf8; --red: #ef4444;
+      --amb-bg: rgba(245,158,11,.12); --amb-bdr: rgba(245,158,11,.3); --amb-txt: #fcd34d;
     }
-    html, body { height: 100%; background: var(--bg); color: var(--text);
+    html, body { height: 100%; background: var(--bg); color: var(--txt);
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     ::-webkit-scrollbar { width: 4px; }
-    ::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
-
+    ::-webkit-scrollbar-thumb { background: var(--sur2); border-radius: 2px; }
     #app { display: flex; flex-direction: column; height: 100%; max-width: 680px; margin: 0 auto; }
 
-    /* Key banner */
+    /* ── Key banner ── */
     #key-banner { display: flex; align-items: center; gap: 8px; padding: 8px 14px;
-      background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
-    #key-banner label { font-size: 11px; color: var(--muted); white-space: nowrap; }
-    #key-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
-      padding: 4px 9px; color: var(--text); font-size: 11px; outline: none; font-family: monospace; }
-    #key-input:focus { border-color: var(--indigo); }
-    #key-save { padding: 4px 11px; background: var(--indigo); color: #fff; border: none;
-      border-radius: 6px; font-size: 11px; cursor: pointer; white-space: nowrap; }
-    #key-save:hover { background: var(--indigo-h); }
+      background: var(--sur); border-bottom: 1px solid var(--bdr); flex-shrink: 0; }
+    #key-banner label { font-size: 11px; color: var(--mut); white-space: nowrap; }
+    #key-input { flex: 1; background: var(--bg); border: 1px solid var(--bdr); border-radius: 6px;
+      padding: 4px 9px; color: var(--txt); font-size: 11px; outline: none; font-family: monospace; }
+    #key-input:focus { border-color: var(--ind); }
+    #key-save { padding: 4px 11px; background: var(--ind); color: #fff; border: none;
+      border-radius: 6px; font-size: 11px; cursor: pointer; }
+    #key-save:hover { background: var(--ind-h); }
 
-    /* Header */
-    header { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
-      border-bottom: 1px solid var(--border); flex-shrink: 0; background: rgba(15,23,42,.92); }
-    .h-icon { width: 32px; height: 32px; border-radius: 9px; background: var(--indigo);
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
-    header h1 { font-size: 14px; font-weight: 600; }
-    #persona-subtitle { font-size: 11px; color: var(--muted); }
+    /* ── Header ── */
+    header { display: flex; align-items: center; gap: 8px; padding: 10px 14px;
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; }
+    .h-icon { width: 30px; height: 30px; border-radius: 9px; background: var(--ind);
+      display: flex; align-items: center; justify-content: center; font-size: 15px; flex-shrink: 0; }
+    header h1 { font-size: 13px; font-weight: 600; flex: 1; }
+    #persona-subtitle { font-size: 10px; color: var(--mut); }
+    .hdr-btn { background: none; border: none; cursor: pointer; color: var(--mut);
+      padding: 5px; border-radius: 7px; transition: background .15s, color .15s;
+      display: flex; align-items: center; gap: 4px; font-size: 11px; }
+    .hdr-btn:hover { background: var(--sur); color: var(--txt); }
+    .hdr-btn:disabled { opacity: .35; cursor: not-allowed; }
+    .hdr-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    #report-btn { color: #f87171; }
+    #report-btn:hover { background: rgba(239,68,68,.12); }
+    #badge-count { display: inline-flex; align-items: center; justify-content: center;
+      width: 14px; height: 14px; border-radius: 50%; background: var(--ind);
+      font-size: 8px; color: #fff; font-weight: 700; }
 
-    /* Persona selector — 4-column grid so all personas always visible */
-    #persona-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
-      padding: 8px 12px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    /* ── Persona selector (4-col grid) ── */
+    #persona-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: 6px;
+      padding: 8px 12px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; }
     .p-btn { display: flex; flex-direction: column; align-items: center; gap: 3px;
       padding: 8px 4px; border-radius: 12px; border: none; cursor: pointer;
-      transition: all .18s; background: var(--surface); color: var(--muted); text-align: center; }
-    .p-btn:hover { background: var(--surface2); color: var(--text); }
-    .p-btn.active { background: var(--indigo); color: #fff; transform: scale(1.05);
+      background: var(--sur); color: var(--mut); transition: all .18s; }
+    .p-btn:hover { background: var(--sur2); color: var(--txt); }
+    .p-btn.active { background: var(--ind); color: #fff; transform: scale(1.05);
       box-shadow: 0 4px 12px rgba(99,102,241,.35); }
-    .p-btn .emoji { font-size: 22px; line-height: 1; }
-    .p-btn .pname { font-size: 11px; font-weight: 600; line-height: 1.2; }
-    .p-btn .prole { font-size: 9px; opacity: .6; line-height: 1.2; }
+    .p-btn .pe { font-size: 22px; line-height: 1; }
+    .p-btn .pn { font-size: 11px; font-weight: 600; line-height: 1.2; }
+    .p-btn .pr { font-size: 9px; opacity: .6; }
 
-    /* 3D Canvas */
-    #canvas-wrap { height: 200px; flex-shrink: 0; position: relative; overflow: hidden; }
-    #three-canvas { width: 100%; height: 100%; display: block; }
+    /* ── Topic selector ── */
+    #topic-strip { display: flex; gap: 6px; padding: 7px 12px; overflow-x: auto;
+      border-bottom: 1px solid var(--bdr); flex-shrink: 0; scrollbar-width: none; }
+    .t-btn { flex-shrink: 0; padding: 4px 10px; border-radius: 99px; border: none; cursor: pointer;
+      font-size: 11px; font-weight: 500; background: var(--sur); color: var(--mut); transition: all .15s; }
+    .t-btn:hover { background: var(--sur2); color: var(--txt); }
+    .t-btn.active { background: var(--ind); color: #fff; }
+
+    /* ── CSS Avatar ── */
+    #avatar-wrap { flex-shrink: 0; height: 200px; display: flex; align-items: center;
+      justify-content: center; position: relative; overflow: hidden; }
+    #avatar-bg { position: absolute; inset: 0; transition: background .5s; }
+    .avatar { width: 110px; height: 110px; border-radius: 50%; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .5s, box-shadow .5s; z-index: 1; }
+    /* Idle float */
+    @keyframes av-float { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-8px) rotate(1deg)} }
+    @keyframes av-float-slow { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+    @keyframes av-float-bounce { 0%,100%{transform:translateY(0) scale(1)} 40%{transform:translateY(-12px) scale(1.03)} 60%{transform:translateY(-10px) scale(1.03)} }
+    @keyframes av-nod { 0%,100%{transform:rotate(0deg)} 25%{transform:rotate(-4deg)} 75%{transform:rotate(4deg)} }
+    @keyframes av-tilt { 0%,100%{transform:rotate(0deg)} 50%{transform:rotate(12deg)} }
+    /* Eyes */
+    .eyes { position: absolute; top: 30px; width: 100%; display: flex; justify-content: center; gap: 20px; }
+    .eye  { width: 16px; height: 16px; border-radius: 50%; background: #1a1a2e; position: relative;
+      transition: transform .1s; }
+    .eye::after { content: ''; position: absolute; top: 2px; right: 2px; width: 5px; height: 5px;
+      border-radius: 50%; background: rgba(255,255,255,.9); }
+    @keyframes blink { 0%,90%,100%{transform:scaleY(1)} 95%{transform:scaleY(.08)} }
+    .eye { animation: blink var(--blink-t, 4s) ease-in-out infinite; }
+    .eye:nth-child(2) { animation-delay: .05s; }
+    /* Mouth */
+    .mouth-wrap { position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+      width: 36px; overflow: hidden; display: flex; justify-content: center; }
+    .mouth { width: 32px; height: 8px; border-radius: 0 0 16px 16px;
+      background: #1a1a2e; transition: height .06s; }
+    /* Eyebrows */
+    .brows { position: absolute; top: 20px; width: 100%; display: flex; justify-content: center; gap: 22px; }
+    .brow { width: 18px; height: 4px; border-radius: 2px; background: #1a1a2e; transition: transform .2s, translateY .2s; }
+    .brow.l { transform: rotate(10deg); }
+    .brow.r { transform: rotate(-10deg); }
+    /* Accessory */
+    .acc { position: absolute; }
+    /* State badge */
     #state-badge { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
-      font-size: 10px; padding: 2px 9px; border-radius: 99px; font-weight: 600; letter-spacing: .05em;
-      text-transform: uppercase; pointer-events: none; transition: background .3s; }
+      font-size: 10px; padding: 2px 10px; border-radius: 99px; font-weight: 600;
+      letter-spacing: .04em; text-transform: uppercase; pointer-events: none;
+      transition: background .3s, color .3s; background: rgba(51,65,85,.6); color: var(--mut); }
 
-    /* Chat */
-    #chat { flex: 1; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
-    .msg-wrap { display: flex; flex-direction: column; }
-    .msg-wrap.user { align-items: flex-end; }
-    .msg-wrap.ai   { align-items: flex-start; }
-    .bubble { max-width: 80%; padding: 9px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.55; }
-    .user .bubble  { background: var(--indigo); color: #fff; border-bottom-right-radius: 4px; }
-    .ai   .bubble  { background: var(--surface); color: var(--text); border-top-left-radius: 4px; }
+    /* ── Chat ── */
+    #chat { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+    .mw { display: flex; flex-direction: column; }
+    .mw.user { align-items: flex-end; }
+    .mw.ai   { align-items: flex-start; }
+    .bub { max-width: 82%; padding: 9px 13px; border-radius: 16px; font-size: 13.5px; line-height: 1.55; }
+    .user .bub  { background: var(--ind); color: #fff; border-bottom-right-radius: 4px; }
+    .ai   .bub  { background: var(--sur); color: var(--txt); border-top-left-radius: 4px; }
     .ai-row { display: flex; align-items: flex-start; gap: 8px; }
-    .ai-av  { width: 24px; height: 24px; border-radius: 50%; background: var(--surface2);
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 2px; font-size: 13px; }
-    .correction { margin-top: 5px; max-width: 80%; padding: 7px 11px; border-radius: 10px;
-      background: var(--amber-bg); border: 1px solid var(--amber-border);
-      font-size: 11.5px; line-height: 1.5; color: var(--amber-text); }
-    .correction strong { font-weight: 600; }
+    .ai-av  { width: 24px; height: 24px; border-radius: 50%; background: var(--sur2); flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; margin-top: 2px; font-size: 13px; }
+    .correction { margin-top: 5px; max-width: 82%; padding: 7px 11px; border-radius: 10px;
+      background: var(--amb-bg); border: 1px solid var(--amb-bdr); font-size: 11.5px;
+      line-height: 1.5; color: var(--amb-txt); }
+    .pron-badge { margin-top: 4px; display: inline-block; font-size: 10px; padding: 2px 9px;
+      border-radius: 99px; border: 1px solid; font-weight: 500; }
+    .pron-ex  { color: #4ade80; background: rgba(74,222,128,.1); border-color: rgba(74,222,128,.3); }
+    .pron-gd  { color: #fbbf24; background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.3); }
+    .pron-ok  { color: #fb923c; background: rgba(251,146,60,.1); border-color: rgba(251,146,60,.3); }
+    .pron-nw  { color: #f87171; background: rgba(248,113,113,.1); border-color: rgba(248,113,113,.3); }
     /* Typing dots */
-    .dots { display: flex; gap: 4px; padding: 11px 13px; background: var(--surface);
+    .dots { display: flex; gap: 4px; padding: 11px 13px; background: var(--sur);
       border-radius: 16px; border-top-left-radius: 4px; align-items: center; }
-    .dot  { width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+    .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--mut);
       animation: bounce 1.2s ease-in-out infinite; }
-    .dot:nth-child(2) { animation-delay: .2s; }
-    .dot:nth-child(3) { animation-delay: .4s; }
-    @keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }
+    .dot:nth-child(2){animation-delay:.2s}.dot:nth-child(3){animation-delay:.4s}
+    @keyframes bounce{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-6px)}}
 
-    /* Footer */
-    footer { padding: 14px; border-top: 1px solid var(--border); display: flex;
-      flex-direction: column; align-items: center; gap: 7px; flex-shrink: 0;
-      background: rgba(15,23,42,.92); }
-    #status-text { font-size: 11px; color: var(--muted); }
-    #mic-btn { width: 62px; height: 62px; border-radius: 50%; border: none; cursor: pointer;
+    /* ── Footer ── */
+    footer { padding: 12px 14px; border-top: 1px solid var(--bdr); flex-shrink: 0;
+      display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    #status-txt { font-size: 11px; color: var(--mut); }
+    #mic-btn { width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer;
       display: flex; align-items: center; justify-content: center; position: relative;
-      user-select: none; -webkit-user-select: none;
-      background: var(--indigo); box-shadow: 0 4px 18px rgba(99,102,241,.4);
-      transition: transform .15s, box-shadow .15s, background .15s; }
+      background: var(--ind); box-shadow: 0 4px 18px rgba(99,102,241,.4);
+      transition: transform .15s, background .15s, box-shadow .15s;
+      user-select: none; -webkit-user-select: none; }
     #mic-btn svg { width: 24px; height: 24px; stroke: #fff; fill: none; stroke-width: 2;
       stroke-linecap: round; stroke-linejoin: round; pointer-events: none; }
-    #mic-btn:disabled { background: var(--surface2); box-shadow: none; cursor: not-allowed; opacity: .45; }
-    #mic-btn.recording { background: var(--red); transform: scale(1.1); box-shadow: 0 4px 22px rgba(239,68,68,.5); }
-    #mic-btn.recording::before { content: ""; position: absolute; inset: -10px; border-radius: 50%;
-      border: 2px solid var(--red); animation: pulse-ring 1.2s ease-out infinite; }
-    #mic-btn:not(.recording):not(:disabled):active { transform: scale(.94); }
-    @keyframes pulse-ring { 0%{transform:scale(1);opacity:.9} 100%{transform:scale(1.65);opacity:0} }
-    .spin { animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
+    #mic-btn:disabled { background: var(--sur2); box-shadow: none; opacity: .4; cursor: not-allowed; }
+    #mic-btn.rec { background: var(--red); transform: scale(1.1); box-shadow: 0 4px 22px rgba(239,68,68,.5); }
+    #mic-btn.rec::before { content:''; position:absolute; inset:-10px; border-radius:50%;
+      border: 2px solid var(--red); animation: pring 1.2s ease-out infinite; }
+    @keyframes pring{0%{transform:scale(1);opacity:.9}100%{transform:scale(1.65);opacity:0}}
+    #mic-btn:not(.rec):not(:disabled):active{transform:scale(.94)}
+    .spin{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── Session Report Modal ── */
+    .overlay { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.7);
+      backdrop-filter: blur(4px); display: flex; align-items: flex-end; justify-content: center;
+      padding: 0 12px 16px; }
+    .modal { width: 100%; max-width: 520px; background: #0f172a; border: 1px solid var(--sur2);
+      border-radius: 20px; overflow: hidden; display: flex; flex-direction: column; max-height: 88vh; }
+    .modal-hdr { display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 18px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; }
+    .modal-hdr h2 { font-size: 14px; font-weight: 600; }
+    .modal-close { background: none; border: none; cursor: pointer; color: var(--mut);
+      padding: 4px; border-radius: 7px; line-height: 0; }
+    .modal-close:hover { background: var(--sur); color: var(--txt); }
+    .modal-body { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+    .score-row { display: flex; align-items: center; justify-content: space-around;
+      background: rgba(30,41,59,.6); border-radius: 14px; padding: 14px; }
+    .score-divider { width: 1px; height: 50px; background: var(--bdr); }
+    .score-num { font-size: 26px; font-weight: 700; }
+    .score-lbl { font-size: 10px; color: var(--mut); margin-top: 2px; }
+    .rep-section h3 { font-size: 10px; font-weight: 600; color: var(--mut); text-transform: uppercase;
+      letter-spacing: .06em; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+    .rep-feedback { background: rgba(99,102,241,.12); border: 1px solid rgba(99,102,241,.25);
+      border-radius: 12px; padding: 12px; font-size: 13px; color: #c7d2fe; line-height: 1.6; }
+    .corr-item { background: var(--sur); border-radius: 10px; padding: 10px 12px; margin-bottom: 7px; }
+    .corr-orig { font-size: 11px; color: #f87171; text-decoration: line-through; opacity: .7; margin-bottom: 2px; }
+    .corr-fix  { font-size: 13px; color: #4ade80; font-weight: 500; }
+    .corr-why  { font-size: 11px; color: var(--mut); margin-top: 3px; }
+    .tag { display: inline-block; padding: 3px 10px; border-radius: 99px;
+      background: rgba(139,92,246,.18); border: 1px solid rgba(139,92,246,.3);
+      color: #c4b5fd; font-size: 11px; margin: 2px; }
+    .str-item, .rec-item { font-size: 13px; color: var(--txt); padding: 3px 0;
+      display: flex; align-items: flex-start; gap: 6px; }
+    .str-item::before { content:'✓'; color: #4ade80; flex-shrink: 0; }
+    .rec-item::before { content:'→'; color: #38bdf8; flex-shrink: 0; }
+    .modal-foot { padding: 12px 16px; border-top: 1px solid var(--bdr); display: flex; gap: 8px; flex-shrink: 0; }
+    .btn-sec { flex: 1; padding: 10px; border-radius: 12px; border: none; cursor: pointer;
+      background: var(--sur); color: var(--mut); font-size: 13px; font-weight: 500; }
+    .btn-sec:hover { background: var(--sur2); }
+    .btn-pri { flex: 1; padding: 10px; border-radius: 12px; border: none; cursor: pointer;
+      background: var(--ind); color: #fff; font-size: 13px; font-weight: 500; }
+    .btn-pri:hover { background: var(--ind-h); }
+
+    /* ── History Drawer ── */
+    .drawer-overlay { position: fixed; inset: 0; z-index: 50; display: flex; justify-content: flex-end; }
+    .drawer-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,.6); backdrop-filter: blur(3px); }
+    .drawer { position: relative; width: min(360px,92vw); height: 100%; background: #0f172a;
+      border-left: 1px solid var(--bdr); display: flex; flex-direction: column; }
+    .drawer-hdr { display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 16px; border-bottom: 1px solid var(--bdr); flex-shrink: 0; }
+    .drawer-hdr h2 { font-size: 13px; font-weight: 600; }
+    .drawer-body { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .hist-item { background: var(--sur); border-radius: 12px; overflow: hidden; }
+    .hist-row { display: flex; align-items: center; gap: 10px; padding: 11px 14px; cursor: pointer; }
+    .hist-row:hover { background: rgba(255,255,255,.04); }
+    .hist-meta { flex: 1; min-width: 0; }
+    .hist-title { font-size: 12px; font-weight: 600; color: var(--txt); display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .hist-sub { font-size: 10px; color: var(--mut); margin-top: 2px; }
+    .hist-detail { border-top: 1px solid var(--bdr); padding: 10px 14px; display: none; }
+    .hist-detail.open { display: block; }
+    .hist-msgs { max-height: 120px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; margin-bottom: 8px; }
+    .hm-user { font-size: 11px; background: rgba(99,102,241,.2); padding: 4px 9px; border-radius: 8px;
+      color: #c7d2fe; text-align: right; margin-left: 20px; }
+    .hm-ai   { font-size: 11px; background: var(--sur2); padding: 4px 9px; border-radius: 8px;
+      color: var(--mut); margin-right: 20px; }
+    .hist-fbk { font-size: 11px; color: #c7d2fe; background: rgba(99,102,241,.1); border-radius: 8px;
+      padding: 7px 10px; line-height: 1.5; margin-bottom: 6px; }
+    .hist-del { background: none; border: none; cursor: pointer; font-size: 11px;
+      color: var(--mut); display: flex; align-items: center; gap: 4px; padding: 2px 0; }
+    .hist-del:hover { color: #f87171; }
+    .score-chip { font-size: 9px; padding: 1px 6px; border-radius: 99px; border: 1px solid; font-weight: 700; }
+    .topic-chip { font-size: 9px; padding: 1px 6px; border-radius: 99px;
+      background: rgba(99,102,241,.2); border: 1px solid rgba(99,102,241,.3); color: #a5b4fc; }
+    .empty-hist { text-align: center; color: var(--mut); font-size: 13px; margin-top: 60px; }
+    .empty-hist div { font-size: 32px; margin-bottom: 10px; }
   </style>
 </head>
 <body>
 <div id="app">
+  <!-- Key banner -->
   <div id="key-banner">
     <label for="key-input">OpenAI Key</label>
     <input id="key-input" type="password" placeholder="sk-..." autocomplete="off" />
     <button id="key-save">Save</button>
   </div>
 
+  <!-- Header -->
   <header>
     <div class="h-icon">📚</div>
-    <div>
+    <div style="flex:1;min-width:0">
       <h1>English Tutor AI</h1>
-      <div id="persona-subtitle">Kai · 남성 튜터</div>
+      <div id="persona-subtitle"></div>
     </div>
+    <button class="hdr-btn" id="history-btn" title="대화 기록">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span id="badge-count" style="display:none"></span>
+    </button>
+    <button class="hdr-btn" id="report-btn" title="세션 리포트" style="display:none">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+      리포트
+    </button>
+    <button class="hdr-btn" id="reset-btn" title="새 대화">
+      <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-4.95"/></svg>
+    </button>
   </header>
 
+  <!-- Persona selector -->
   <div id="persona-strip"></div>
 
-  <div id="canvas-wrap">
-    <canvas id="three-canvas"></canvas>
-    <div id="state-badge" style="background:rgba(51,65,85,.6);color:#94a3b8">Idle</div>
+  <!-- Topic selector -->
+  <div id="topic-strip"></div>
+
+  <!-- Avatar -->
+  <div id="avatar-wrap">
+    <div id="avatar-bg"></div>
+    <div class="avatar" id="avatar">
+      <div class="brows"><div class="brow l" id="brow-l"></div><div class="brow r" id="brow-r"></div></div>
+      <div class="eyes"><div class="eye" id="eye-l"></div><div class="eye" id="eye-r"></div></div>
+      <div class="mouth-wrap"><div class="mouth" id="mouth"></div></div>
+      <div class="acc" id="accessory"></div>
+    </div>
+    <div id="state-badge">Idle</div>
   </div>
 
+  <!-- Chat -->
   <div id="chat"></div>
 
+  <!-- Footer -->
   <footer>
-    <span id="status-text">Hold to speak · 한국어도 OK</span>
-    <button id="mic-btn" aria-label="Hold to speak">
-      <svg id="icon-mic"    viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-      <svg id="icon-moff"   viewBox="0 0 24 24" style="display:none"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12"/><path d="M5 10a7 7 0 0 0 12.93 3"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
-      <svg id="icon-spin"   viewBox="0 0 24 24" class="spin" style="display:none"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+    <span id="status-txt">Hold to speak · 한국어도 OK</span>
+    <button id="mic-btn">
+      <svg id="ic-mic"  viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M19 10a7 7 0 0 1-14 0"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+      <svg id="ic-off"  viewBox="0 0 24 24" style="display:none"><line x1="2" y1="2" x2="22" y2="22"/><path d="M18.89 13.23A7.12 7.12 0 0 0 19 12"/><path d="M5 10a7 7 0 0 0 12.93 3"/><path d="M15 9.34V5a3 3 0 0 0-5.68-1.33"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12"/><line x1="12" y1="19" x2="12" y2="22"/><line x1="8" y1="22" x2="16" y2="22"/></svg>
+      <svg id="ic-spin" viewBox="0 0 24 24" class="spin" style="display:none"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
     </button>
   </footer>
 </div>
 <audio id="tts-audio" style="display:none"></audio>
 
-<!-- Three.js via ESM CDN -->
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.167.1/build/three.module.js"}}</script>
-<script type="module">
-import * as THREE from 'three'
-
-// ──────────────────────────────────────────────────────────────────────────────
-// PERSONA DEFINITIONS
-// ──────────────────────────────────────────────────────────────────────────────
+<script>
+// ══════════════════════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════════════════════
 const PERSONAS = {
   sunny: {
     id:'sunny', name:'Sunny', emoji:'🌟', roleKo:'어린이 친구', voice:'fable',
     greeting:"Hi hi hi! I'm Sunny! 🌟 What do you want to talk about today? Animals? 🐶 Games? 🎮 You pick!",
-    prompt:`You are Sunny, a super cheerful AI friend helping children learn English! 🌟
-Personality: Extremely enthusiastic. Use VERY simple words and short sentences. Use emojis often 🎉✨🌈
-Language: If child speaks Korean, acknowledge in 1 Korean sentence, then say it in English and invite repeat.
-Corrections: "That was great! A better way is: ..." — never harsh. null if Korean or perfect.
-Topics: animals, games, cartoons, food, colors, school, family, toys.
-Return ONLY valid JSON: {"correction":"...or null","reply":"your fun reply!"}`,
-    colors:{head:'#FFB300',eye:'#3D1A00',mouth:'#CC2200',rosy:'#FF8C8C',accessory:'#FF6B00',bgFrom:'#2D1800',bgTo:'#1A0F00'},
-    anim:{idleSpeed:2.8,idleAmp:.09,nodSpeed:3.8,blinkInterval:2.2,swayAmp:.06}
+    color:'#FFB300', glow:'rgba(255,179,0,.35)', eyeColor:'#3D1A00', mouthColor:'#CC2200', rosy:'#FF8C8C',
+    bgGrad:'radial-gradient(ellipse at 50% 60%, #2D1800 0%, #0a0f1a 100%)',
+    blinkT:'2.5s', animClass:'av-float-bounce',
+    prompt:`You are Sunny, a super cheerful AI friend helping children learn English! Use VERY simple words. Use emojis often 🎉✨. If Korean spoken, acknowledge in 1 Korean sentence then invite English. Corrections: gentle - "Great try! A better way is:..." null if Korean/perfect. Return ONLY JSON: {"correction":null,"reply":"..."}`
   },
   aria: {
     id:'aria', name:'Aria', emoji:'🌸', roleKo:'여성 튜터', voice:'nova',
-    greeting:"Hello! I'm Aria. It's so lovely to meet you. 🌸 What's been on your mind lately?",
-    prompt:`You are Aria, a warm and nurturing English tutor.
-Language: Respond primarily in English. If user speaks Korean, acknowledge warmly in 1 Korean sentence, guide to English.
-Corrections: "That was lovely! You could also say: ..." null if Korean or perfect.
-Topics: lifestyle, culture, travel, food, fashion, relationships, self-improvement, health.
-Return ONLY valid JSON: {"correction":"...or null","reply":"your warm reply"}`,
-    colors:{head:'#C084FC',eye:'#3B0764',mouth:'#7C3AED',rosy:'#F0ABFC',accessory:'#EC4899',bgFrom:'#1A0030',bgTo:'#0D0020'},
-    anim:{idleSpeed:1.2,idleAmp:.04,nodSpeed:2.4,blinkInterval:3.8,swayAmp:.02}
+    greeting:"Hello! I'm Aria. 🌸 It's lovely to meet you. What's been on your mind lately?",
+    color:'#C084FC', glow:'rgba(192,132,252,.35)', eyeColor:'#3B0764', mouthColor:'#7C3AED', rosy:'#F0ABFC',
+    bgGrad:'radial-gradient(ellipse at 50% 60%, #1A0030 0%, #0a0f1a 100%)',
+    blinkT:'3.8s', animClass:'av-float-slow',
+    prompt:`You are Aria, a warm nurturing English tutor. Respond primarily in English. If Korean, acknowledge in 1 Korean sentence then guide to English. Corrections: "That was lovely! You could also say:..." null if Korean/perfect. Return ONLY JSON: {"correction":null,"reply":"..."}`
   },
   kai: {
     id:'kai', name:'Kai', emoji:'😎', roleKo:'남성 튜터', voice:'onyx',
-    greeting:"Hey! What's up? I'm Kai 😎 Ready to chat about literally anything — what's on your mind?",
-    prompt:`You are Kai, a cool and laid-back English-speaking friend.
-Language: Casual English. If user speaks Korean, quick Korean nod (1 sentence) then switch to English.
-Corrections: "Ha, close! Native speakers usually say: ..." null if Korean or perfect.
-Topics: sports, tech, gaming, pop culture, travel, music, movies, food.
-Return ONLY valid JSON: {"correction":"...or null","reply":"your chill reply"}`,
-    colors:{head:'#38BDF8',eye:'#0C4A6E',mouth:'#0369A1',rosy:null,accessory:'#0EA5E9',bgFrom:'#001A2D',bgTo:'#000D1A'},
-    anim:{idleSpeed:1.6,idleAmp:.05,nodSpeed:3.0,blinkInterval:3.0,swayAmp:.03}
+    greeting:"Hey! What's up? I'm Kai 😎 Ready to chat about anything — what's on your mind?",
+    color:'#38BDF8', glow:'rgba(56,189,248,.35)', eyeColor:'#0C4A6E', mouthColor:'#0369A1', rosy:null,
+    bgGrad:'radial-gradient(ellipse at 50% 60%, #001A2D 0%, #0a0f1a 100%)',
+    blinkT:'3s', animClass:'av-float',
+    prompt:`You are Kai, a cool laid-back English friend. Casual English. If Korean, quick Korean nod (1 sentence) then switch. Corrections: "Ha, close! Native speakers usually say:..." null if Korean/perfect. Return ONLY JSON: {"correction":null,"reply":"..."}`
   },
   sterling: {
     id:'sterling', name:'Mr. Sterling', emoji:'💼', roleKo:'회사 상사', voice:'echo',
-    greeting:"Good day. I'm Mr. Sterling. We have limited time — let's use it productively. What business matter shall we address?",
-    prompt:`You are Mr. Sterling, a demanding Business English coach.
-Language: Always formal English. If user speaks Korean, acknowledge in 1 formal Korean sentence, insist on professional English.
-Corrections: "Incorrect. The professional phrasing is: ..." null if Korean or correct.
-Topics: business meetings, presentations, negotiations, emails, networking, leadership.
-Return ONLY valid JSON: {"correction":"...or null","reply":"your formal reply"}`,
-    colors:{head:'#94A3B8',eye:'#1E293B',mouth:'#475569',rosy:null,accessory:'#F59E0B',bgFrom:'#0A0F1A',bgTo:'#050810'},
-    anim:{idleSpeed:.7,idleAmp:.015,nodSpeed:1.8,blinkInterval:5.0,swayAmp:.005}
+    greeting:"Good day. I'm Mr. Sterling. We have limited time — what business matter shall we address?",
+    color:'#94A3B8', glow:'rgba(148,163,184,.25)', eyeColor:'#1E293B', mouthColor:'#475569', rosy:null,
+    bgGrad:'radial-gradient(ellipse at 50% 60%, #0A0F1A 0%, #050810 100%)',
+    blinkT:'5s', animClass:'av-float-slow',
+    prompt:`You are Mr. Sterling, a demanding Business English coach. Always formal. If Korean, acknowledge formally in 1 Korean sentence then insist English. Corrections: "Incorrect. The professional phrasing is:..." null if Korean/correct. Return ONLY JSON: {"correction":null,"reply":"..."}`
   }
 }
 const PERSONA_ORDER = ['sunny','aria','kai','sterling']
 
-// ──────────────────────────────────────────────────────────────────────────────
+const TOPICS = [
+  { id:null,           emoji:'💬', nameKo:'자유 대화', hint:null },
+  { id:'daily',        emoji:'☕', nameKo:'일상',      hint:'Steer conversation to everyday life: routines, hobbies, feelings.' },
+  { id:'travel',       emoji:'✈️', nameKo:'여행',      hint:'Steer to travel: trips, destinations, transportation, hotels.' },
+  { id:'business',     emoji:'💼', nameKo:'비즈니스',  hint:'Steer to professional topics: meetings, presentations, career.' },
+  { id:'food',         emoji:'🍕', nameKo:'음식',      hint:'Steer to food: dishes, restaurants, cooking, food culture.' },
+  { id:'entertainment',emoji:'🎬', nameKo:'영화/TV',   hint:'Steer to pop culture: movies, shows, music, celebrities.' },
+  { id:'tech',         emoji:'💻', nameKo:'테크',      hint:'Steer to technology: gadgets, apps, AI, gaming, trends.' },
+  { id:'sports',       emoji:'⚽', nameKo:'스포츠',    hint:'Steer to sports and fitness: favourite sports, exercise, health.' },
+  { id:'relationships',emoji:'❤️', nameKo:'관계',      hint:'Steer to relationships: friendship, family, dating, social life.' },
+]
+
+// ══════════════════════════════════════════════════════════════════════════════
 // STATE
-// ──────────────────────────────────────────────────────────────────────────────
-let apiKey       = localStorage.getItem('oai_key') || ''
-let personaId    = 'kai'
-let history      = []
-let isRecording  = false
-let isProcessing = false
-let isSpeaking   = false
-let amplitude    = 0  // 0–1, updated by AudioContext analyser
-let mediaRecorder = null
+// ══════════════════════════════════════════════════════════════════════════════
+let apiKey        = localStorage.getItem('oai_key') || ''
+let personaId     = 'kai'
+let topicId       = null
+let history       = []
+let isRecording   = false
+let isProcessing  = false
+let isSpeaking    = false
+let isGenReport   = false
+let sessionId     = uid()
+let sessionStart  = new Date().toISOString()
+let amplitude     = 0
+let mediaRec      = null
 let audioChunks   = []
-
-// AudioContext (set up once on first user gesture)
-let audioCtx     = null
-let analyser     = null
+let audioCtx      = null
+let analyser      = null
 let audioSrcReady = false
-let ampRaf       = null
+let ampRaf        = null
+let avatarRaf     = null
 
-// ──────────────────────────────────────────────────────────────────────────────
-// DOM REFS
-// ──────────────────────────────────────────────────────────────────────────────
-const keyInput      = document.getElementById('key-input')
-const keySave       = document.getElementById('key-save')
-const personaStrip  = document.getElementById('persona-strip')
-const personaSub    = document.getElementById('persona-subtitle')
-const chat          = document.getElementById('chat')
-const statusText    = document.getElementById('status-text')
-const micBtn        = document.getElementById('mic-btn')
-const iconMic       = document.getElementById('icon-mic')
-const iconMoff      = document.getElementById('icon-moff')
-const iconSpin      = document.getElementById('icon-spin')
-const ttsAudio      = document.getElementById('tts-audio')
-const stateBadge    = document.getElementById('state-badge')
-const canvasEl      = document.getElementById('three-canvas')
-const canvasWrap    = document.getElementById('canvas-wrap')
+// ══════════════════════════════════════════════════════════════════════════════
+// DOM
+// ══════════════════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id)
+const keyInput     = $('key-input')
+const keySave      = $('key-save')
+const pStrip       = $('persona-strip')
+const tStrip       = $('topic-strip')
+const pSub         = $('persona-subtitle')
+const chat         = $('chat')
+const statusTxt    = $('status-txt')
+const micBtn       = $('mic-btn')
+const icMic        = $('ic-mic')
+const icOff        = $('ic-off')
+const icSpin       = $('ic-spin')
+const ttsAudio     = $('tts-audio')
+const badge        = $('badge-count')
+const reportBtn    = $('report-btn')
+const histBtn      = $('history-btn')
+const resetBtn     = $('reset-btn')
+const stateBadge   = $('state-badge')
+const avatarEl     = $('avatar')
+const avatarBg     = $('avatar-bg')
+const mouthEl      = $('mouth')
+const eyeLEl       = $('eye-l')
+const eyeREl       = $('eye-r')
+const browLEl      = $('brow-l')
+const browREl      = $('brow-r')
+const accEl        = $('accessory')
 
-// ──────────────────────────────────────────────────────────────────────────────
-// THREE.JS SETUP
-// ──────────────────────────────────────────────────────────────────────────────
-const renderer = new THREE.WebGLRenderer({ canvas: canvasEl, alpha: true, antialias: true })
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-renderer.shadowMap.enabled = true
+// ══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════════════════════
+if (apiKey) keyInput.value = apiKey
+buildPersonaStrip()
+buildTopicStrip()
+applyPersona('kai')
+appendAI(PERSONAS['kai'].greeting)
+updateHistBadge()
 
-const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 100)
-camera.position.set(0, 0, 3.3)
-
-const scene = new THREE.Scene()
-
-// Lights
-const ambientLight = new THREE.AmbientLight('#ffffff', 0.7)
-scene.add(ambientLight)
-const dirLight = new THREE.DirectionalLight('#ffffff', 1.3)
-dirLight.position.set(2, 4, 5)
-dirLight.castShadow = true
-scene.add(dirLight)
-const fillLight = new THREE.PointLight('#ffffff', 0.5, 20)
-fillLight.position.set(-3, -2, 2)
-scene.add(fillLight)
-const rimLight = new THREE.PointLight('#ffffff', 0.2, 20)
-rimLight.position.set(3, 3, -2)
-scene.add(rimLight)
-
-// Character group
-const charGroup = new THREE.Group()
-scene.add(charGroup)
-
-// Meshes (created once, updated on persona change)
-let headMesh, mouthMesh, eyeLMesh, eyeRMesh, browLMesh, browRMesh
-let roseL, roseR, accessoryGroup
-const timeObj = { t: 0, blink: Math.random() * 3 + 2 }
-
-function buildCharacter(pid) {
-  const p = PERSONAS[pid]
-  const c = p.colors
-
-  // Clear
-  while (charGroup.children.length) charGroup.remove(charGroup.children[0])
-
-  // Head
-  headMesh = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 64, 64),
-    new THREE.MeshStandardMaterial({
-      color: c.head,
-      roughness: pid === 'sterling' ? 0.7 : 0.22,
-      metalness: pid === 'sterling' ? 0.15 : 0
-    })
-  )
-  headMesh.castShadow = true
-  charGroup.add(headMesh)
-
-  // Rosy cheeks
-  roseL = roseR = null
-  if (c.rosy) {
-    const roseMat = new THREE.MeshStandardMaterial({ color: c.rosy, transparent: true, opacity: 0.42, side: THREE.DoubleSide })
-    roseL = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), roseMat)
-    roseR = new THREE.Mesh(new THREE.CircleGeometry(0.22, 32), roseMat.clone())
-    roseL.position.set(-0.6, 0.05, 0.78); roseL.rotation.y =  0.65
-    roseR.position.set( 0.6, 0.05, 0.78); roseR.rotation.y = -0.65
-    charGroup.add(roseL, roseR)
-  }
-
-  const eyeMat  = new THREE.MeshStandardMaterial({ color: 'white', roughness: 0.08 })
-  const pupMat  = new THREE.MeshStandardMaterial({ color: c.eye })
-  const shineMat = new THREE.MeshStandardMaterial({ color: 'white', emissive: 'white', emissiveIntensity: 1 })
-  const eyeGeo  = new THREE.SphereGeometry(0.188, 32, 32)
-  const pupGeo  = new THREE.SphereGeometry(0.093, 16, 16)
-  const shineGeo= new THREE.SphereGeometry(0.032, 8, 8)
-
-  eyeLMesh = new THREE.Mesh(eyeGeo, eyeMat)
-  eyeLMesh.position.set(-0.29, 0.21, 0.951)
-  charGroup.add(eyeLMesh)
-  const pupL = new THREE.Mesh(pupGeo, pupMat)
-  pupL.position.set(-0.29, 0.21, 0.972)
-  charGroup.add(pupL)
-  const shineL = new THREE.Mesh(shineGeo, shineMat)
-  shineL.position.set(-0.265, 0.235, 0.988)
-  charGroup.add(shineL)
-
-  eyeRMesh = new THREE.Mesh(eyeGeo, eyeMat.clone())
-  eyeRMesh.position.set(0.29, 0.21, 0.951)
-  charGroup.add(eyeRMesh)
-  const pupR = new THREE.Mesh(pupGeo, pupMat.clone())
-  pupR.position.set(0.29, 0.21, 0.972)
-  charGroup.add(pupR)
-  const shineR = new THREE.Mesh(shineGeo, shineMat.clone())
-  shineR.position.set(0.315, 0.235, 0.988)
-  charGroup.add(shineR)
-
-  // Eyebrows
-  const browMat = new THREE.MeshStandardMaterial({ color: c.eye })
-  const browW = pid === 'sterling' ? 0.36 : 0.3
-  const browAngle = pid === 'sterling' ? 0.38 : 0.16
-  browLMesh = new THREE.Mesh(new THREE.BoxGeometry(browW, 0.062, 0.055), browMat)
-  browLMesh.position.set(-0.29, 0.52, 0.951)
-  browLMesh.rotation.z =  browAngle
-  charGroup.add(browLMesh)
-  browRMesh = new THREE.Mesh(new THREE.BoxGeometry(browW, 0.062, 0.055), browMat.clone())
-  browRMesh.position.set( 0.29, 0.52, 0.951)
-  browRMesh.rotation.z = -browAngle
-  charGroup.add(browRMesh)
-
-  // Mouth
-  mouthMesh = new THREE.Mesh(
-    new THREE.CircleGeometry(0.27, 32),
-    new THREE.MeshStandardMaterial({ color: c.mouth, side: THREE.DoubleSide })
-  )
-  mouthMesh.position.set(0, -0.27, 0.963)
-  mouthMesh.scale.y = 0.06
-  charGroup.add(mouthMesh)
-
-  // Accessory
-  accessoryGroup = new THREE.Group()
-  charGroup.add(accessoryGroup)
-  buildAccessory(pid, c.accessory)
-
-  // Fill light color
-  fillLight.color.set(c.head)
-
-  // Canvas background
-  canvasWrap.style.background = `radial-gradient(ellipse at 50% 60%, ${c.bgFrom} 0%, #0a0f1a 100%)`
-
-  timeObj.blink = Math.random() * 3 + 2
-  charGroup.position.set(0, 0, 0)
-  charGroup.rotation.set(0, 0, 0)
-}
-
-function buildAccessory(pid, color) {
-  while (accessoryGroup.children.length) accessoryGroup.remove(accessoryGroup.children[0])
-  const mat = (extra = {}) => new THREE.MeshStandardMaterial({ color, ...extra })
-
-  if (pid === 'sunny') {
-    const star = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.44, 5), mat({ emissive: color, emissiveIntensity: 0.4 }))
-    star.position.set(0, 1.18, 0)
-    accessoryGroup.add(star)
-  } else if (pid === 'aria') {
-    const bun = new THREE.Mesh(new THREE.SphereGeometry(0.33, 32, 32), mat({ roughness: 0.45 }))
-    bun.position.set(0.36, 1.02, -0.08)
-    const dot = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), new THREE.MeshStandardMaterial({ color:'#fff', emissive:'#fff', emissiveIntensity:.6 }))
-    dot.position.set(0.36, 1.02, 0.22)
-    accessoryGroup.add(bun, dot)
-  } else if (pid === 'kai') {
-    [[-.28,1.12,.28,0.5,0,-.35],[.08,1.17,.22,.3,0,.12],[.36,1.04,.12,.2,0,.32]].forEach(([x,y,z,rx,ry,rz]) => {
-      const h = new THREE.Mesh(new THREE.CylinderGeometry(.09,.14,.38,8), mat({ roughness:.4 }))
-      h.position.set(x,y,z); h.rotation.set(rx,ry,rz)
-      accessoryGroup.add(h)
-    })
-  } else if (pid === 'sterling') {
-    const torusMat = mat({ metalness:.9, roughness:.1 })
-    const geoT = new THREE.TorusGeometry(0.17, 0.026, 8, 32)
-    const l = new THREE.Mesh(geoT, torusMat); l.position.set(-.3,.18,.97)
-    const r = new THREE.Mesh(geoT, torusMat.clone()); r.position.set(.3,.18,.97)
-    const br= new THREE.Mesh(new THREE.BoxGeometry(.24,.026,.026), torusMat.clone()); br.position.set(0,.18,.97)
-    accessoryGroup.add(l, r, br)
-  }
-}
-
-// Resize
-function onResize() {
-  const w = canvasWrap.clientWidth, h = canvasWrap.clientHeight
-  renderer.setSize(w, h)
-  camera.aspect = w / h
-  camera.updateProjectionMatrix()
-}
-new ResizeObserver(onResize).observe(canvasWrap)
-onResize()
-
-// ─── Animation loop ──────────────────────────────────────────────────────────
-const clock = new THREE.Clock()
-
-function charState() {
-  return isSpeaking ? 'speaking' : isProcessing ? 'thinking' : isRecording ? 'listening' : 'idle'
-}
-
-function animate() {
-  requestAnimationFrame(animate)
-  const delta = clock.getDelta()
-  timeObj.t += delta
-  const t = timeObj.t
-  const amp = Math.min(Math.max(amplitude, 0), 1)
-  const state = charState()
-  const anim  = PERSONAS[personaId].anim
-
-  if (!mouthMesh) return
-
-  // Mouth
-  const targetY = state === 'speaking' ? 0.15 + amp * 0.72 : 0.06
-  mouthMesh.scale.y += (targetY - mouthMesh.scale.y) * 0.22
-
-  // Eyebrows
-  const browY = state==='speaking' ? 0.53+amp*0.08 : state==='thinking' ? 0.57 : state==='listening' ? 0.50 : 0.52
-  browLMesh.position.y += (browY - browLMesh.position.y) * 0.1
-  browRMesh.position.y += (browY - browRMesh.position.y) * 0.1
-
-  // Blink
-  timeObj.blink -= delta
-  if (timeObj.blink <= 0) timeObj.blink = anim.blinkInterval + Math.random() * 2.5
-  const blinkOpen = timeObj.blink > 0.12 ? 1 : Math.sin((timeObj.blink / 0.12) * Math.PI)
-  eyeLMesh.scale.y = Math.max(0.06, blinkOpen)
-  eyeRMesh.scale.y = Math.max(0.06, blinkOpen)
-
-  // Head motion
-  if (state === 'idle') {
-    charGroup.position.y = Math.sin(t * anim.idleSpeed) * anim.idleAmp
-    charGroup.rotation.y = Math.sin(t * 0.55) * anim.swayAmp * 2
-    charGroup.rotation.x += (0 - charGroup.rotation.x) * 0.05
-    charGroup.rotation.z += (0 - charGroup.rotation.z) * 0.05
-  } else if (state === 'listening') {
-    charGroup.rotation.x += (-0.11 - charGroup.rotation.x) * 0.04
-    charGroup.rotation.z += (0.04 - charGroup.rotation.z) * 0.04
-    charGroup.position.y += (0.04 - charGroup.position.y) * 0.04
-  } else if (state === 'thinking') {
-    charGroup.rotation.z += (0.2 - charGroup.rotation.z) * 0.03
-    charGroup.rotation.x += (-0.04 - charGroup.rotation.x) * 0.03
-    charGroup.position.y = Math.sin(t * 0.9) * 0.025
-  } else if (state === 'speaking') {
-    charGroup.rotation.x = Math.sin(t * anim.nodSpeed) * amp * 0.065
-    charGroup.rotation.z = Math.sin(t * 1.3) * anim.swayAmp
-    charGroup.position.y = Math.sin(t * 2.5) * amp * 0.028
-  }
-
-  // Accessory animation (Sunny star spins)
-  if (personaId === 'sunny' && accessoryGroup.children[0]) {
-    accessoryGroup.children[0].rotation.z = Math.sin(t * 2.5) * 0.25
-  }
-
-  renderer.render(scene, camera)
-}
-animate()
-
-// ──────────────────────────────────────────────────────────────────────────────
-// PERSONA SELECTOR UI
-// ──────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// PERSONA
+// ══════════════════════════════════════════════════════════════════════════════
 function buildPersonaStrip() {
-  personaStrip.innerHTML = ''
+  pStrip.innerHTML = ''
   PERSONA_ORDER.forEach(id => {
     const p = PERSONAS[id]
-    const btn = document.createElement('button')
-    btn.className = 'p-btn' + (id === personaId ? ' active' : '')
-    btn.dataset.id = id
-    btn.innerHTML = `<span class="emoji">${p.emoji}</span><div><div class="pname">${p.name}</div><div class="prole">${p.roleKo}</div></div>`
-    btn.addEventListener('click', () => switchPersona(id))
-    personaStrip.appendChild(btn)
+    const b = document.createElement('button')
+    b.className = 'p-btn' + (id === personaId ? ' active' : '')
+    b.dataset.id = id
+    b.innerHTML = `<span class="pe">${p.emoji}</span><div class="pn">${p.name}</div><div class="pr">${p.roleKo}</div>`
+    b.onclick = () => switchPersona(id)
+    pStrip.appendChild(b)
   })
 }
 
-function switchPersona(id) {
-  if (id === personaId) { resetConversation(); return; }
-  stopAmplitude(); isSpeaking = false
-  ttsAudio.pause(); ttsAudio.src = ''
+function buildTopicStrip() {
+  tStrip.innerHTML = ''
+  TOPICS.forEach(t => {
+    const b = document.createElement('button')
+    b.className = 't-btn' + (t.id === topicId ? ' active' : '')
+    b.textContent = `${t.emoji} ${t.nameKo}`
+    b.onclick = () => switchTopic(t.id)
+    tStrip.appendChild(b)
+  })
+}
+
+function applyPersona(id) {
+  const p = PERSONAS[id]
   personaId = id
-  buildCharacter(id)
-  buildPersonaStrip()
-  personaSub.textContent = `${PERSONAS[id].name} · ${PERSONAS[id].roleKo}`
+  // Avatar styling
+  avatarEl.style.background = p.color
+  avatarEl.style.boxShadow  = `0 0 40px ${p.glow}, 0 8px 32px rgba(0,0,0,.5)`
+  avatarBg.style.background = p.bgGrad
+  eyeLEl.style.background   = p.eyeColor
+  eyeREl.style.background   = p.eyeColor
+  mouthEl.style.background  = p.mouthColor
+  browLEl.style.background  = p.eyeColor
+  browREl.style.background  = p.eyeColor
+  eyeLEl.style.setProperty('--blink-t', p.blinkT)
+  eyeREl.style.setProperty('--blink-t', p.blinkT)
+  // Rosy cheeks
+  const roseL = avatarEl.querySelector('.rose-l')
+  const roseR = avatarEl.querySelector('.rose-r')
+  if (roseL) roseL.remove()
+  if (roseR) roseR.remove()
+  if (p.rosy) {
+    ;[['rose-l','-50px'],['rose-r','26px']].forEach(([cls,left]) => {
+      const d = document.createElement('div')
+      d.className = `acc ${cls}`
+      d.style.cssText = `width:22px;height:14px;border-radius:50%;background:${p.rosy};opacity:.45;bottom:28px;left:${left};`
+      avatarEl.appendChild(d)
+    })
+  }
+  // Accessory
+  accEl.innerHTML = ''
+  accEl.style.cssText = ''
+  if (id === 'sunny') {
+    accEl.style.cssText = 'top:-18px;left:50%;transform:translateX(-50%);width:0;height:0;border-left:12px solid transparent;border-right:12px solid transparent;border-bottom:22px solid #FF6B00;'
+  } else if (id === 'aria') {
+    accEl.style.cssText = `top:4px;right:-4px;width:28px;height:28px;border-radius:50%;background:${p.color};filter:brightness(1.2);`
+  } else if (id === 'sterling') {
+    // Glasses: two small rings
+    accEl.innerHTML = `<div style="display:flex;gap:4px;position:absolute;top:28px;left:50%;transform:translateX(-50%)">
+      <div style="width:18px;height:12px;border:2px solid #F59E0B;border-radius:50%;opacity:.9"></div>
+      <div style="width:18px;height:12px;border:2px solid #F59E0B;border-radius:50%;opacity:.9"></div>
+    </div>`
+    accEl.style.cssText = 'position:absolute;width:100%;height:100%;top:0;left:0;'
+  } else if (id === 'kai') {
+    // Hair tufts
+    accEl.innerHTML = `
+      <div style="position:absolute;top:-14px;left:28px;width:12px;height:18px;background:${p.color};border-radius:6px 6px 3px 3px;transform:rotate(-15deg);filter:brightness(1.3)"></div>
+      <div style="position:absolute;top:-18px;left:44px;width:12px;height:22px;background:${p.color};border-radius:6px 6px 3px 3px;transform:rotate(5deg);filter:brightness(1.3)"></div>
+      <div style="position:absolute;top:-13px;left:60px;width:10px;height:16px;background:${p.color};border-radius:6px 6px 3px 3px;transform:rotate(20deg);filter:brightness(1.3)"></div>`
+    accEl.style.cssText = 'position:absolute;width:100%;height:100%;top:0;left:0;pointer-events:none;'
+  }
+  // Animation
+  avatarEl.style.animation = `${p.animClass} ${id==='sunny'?'1.2s':id==='sterling'?'3s':'1.8s'} ease-in-out infinite`
+  // Subtitle & strip active state
+  pSub.textContent = `${p.name} · ${p.roleKo}`
+  pStrip.querySelectorAll('.p-btn').forEach(b => b.classList.toggle('active', b.dataset.id === id))
+}
+
+function switchPersona(id) {
+  if (id === personaId) { resetSession(); return }
+  stopAmp(); isSpeaking = false
+  ttsAudio.pause(); ttsAudio.src = ''
+  applyPersona(id)
   history = []
-  updateUI()
+  sessionId   = uid()
+  sessionStart = new Date().toISOString()
   chat.innerHTML = ''
   appendAI(PERSONAS[id].greeting)
+  updateUI()
 }
 
-function resetConversation() {
-  history = []
-  chat.innerHTML = ''
-  appendAI(PERSONAS[personaId].greeting)
+function switchTopic(id) {
+  topicId = id
+  tStrip.querySelectorAll('.t-btn').forEach((b,i) => b.classList.toggle('active', TOPICS[i].id === id))
 }
 
-buildCharacter('kai')
-buildPersonaStrip()
-appendAI(PERSONAS['kai'].greeting)
+// ══════════════════════════════════════════════════════════════════════════════
+// AVATAR ANIMATION
+// ══════════════════════════════════════════════════════════════════════════════
+function startAvatarLoop() {
+  if (avatarRaf) return
+  function tick() {
+    const amp = Math.min(Math.max(amplitude, 0), 1)
+    const st  = charState()
+    // Mouth
+    const mh = st === 'speaking' ? Math.round(8 + amp * 28) : 8
+    mouthEl.style.height = mh + 'px'
+    // Eyebrow
+    const by = st === 'speaking' ? -3 - amp * 5 : st === 'thinking' ? -7 : st === 'listening' ? 0 : -2
+    browLEl.style.marginTop = by + 'px'
+    browREl.style.marginTop = by + 'px'
+    // Sterling stern brows
+    if (personaId === 'sterling') {
+      browLEl.style.transform = `rotate(${st==='speaking'? 18+amp*5 : 18}deg)`
+      browREl.style.transform = `rotate(${st==='speaking'?-(18+amp*5):-(18)}deg)`
+    }
+    avatarRaf = requestAnimationFrame(tick)
+  }
+  tick()
+}
+startAvatarLoop()
 
-// ──────────────────────────────────────────────────────────────────────────────
-// KEY SAVE
-// ──────────────────────────────────────────────────────────────────────────────
-if (apiKey) keyInput.value = apiKey
-keySave.addEventListener('click', () => {
-  const v = keyInput.value.trim()
-  if (!v) { alert('Please enter your OpenAI API key.'); return }
-  apiKey = v; localStorage.setItem('oai_key', v)
-  keySave.textContent = 'Saved ✓'
-  setTimeout(() => keySave.textContent = 'Save', 1500)
-})
-
-// ──────────────────────────────────────────────────────────────────────────────
-// AUDIO CONTEXT (amplitude tracking)
-// ──────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// AUDIO CONTEXT
+// ══════════════════════════════════════════════════════════════════════════════
 function initAudioCtx() {
   if (audioSrcReady) return
   try {
@@ -532,126 +548,127 @@ function initAudioCtx() {
     src.connect(analyser)
     analyser.connect(audioCtx.destination)
     audioSrcReady = true
-  } catch(e) { console.warn('AudioContext:', e) }
+  } catch(e) { console.warn('AudioCtx:', e) }
 }
 
-function startAmplitude() {
+function startAmp() {
   if (!analyser) return
   const data = new Uint8Array(analyser.frequencyBinCount)
-  function tick() {
-    analyser.getByteFrequencyData(data)
-    amplitude = data.reduce((a,b)=>a+b,0) / data.length / 128
-    ampRaf = requestAnimationFrame(tick)
-  }
+  function tick() { analyser.getByteFrequencyData(data); amplitude = data.reduce((a,b)=>a+b,0)/data.length/128; ampRaf = requestAnimationFrame(tick) }
   tick()
 }
+function stopAmp() { if (ampRaf) cancelAnimationFrame(ampRaf); ampRaf=null; amplitude=0 }
 
-function stopAmplitude() {
-  if (ampRaf) cancelAnimationFrame(ampRaf)
-  ampRaf = null; amplitude = 0
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
 // RECORDING
-// ──────────────────────────────────────────────────────────────────────────────
-async function startRecording() {
-  if (isProcessing || isSpeaking || isRecording) return
+// ══════════════════════════════════════════════════════════════════════════════
+async function startRec() {
+  if (isProcessing || isSpeaking || isRecording || isGenReport) return
   if (!apiKey) { alert('Please save your OpenAI API key first.'); return }
   initAudioCtx()
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     const mime = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus' : 'audio/webm'
-    mediaRecorder = new MediaRecorder(stream, { mimeType: mime })
+    mediaRec = new MediaRecorder(stream, { mimeType: mime })
     audioChunks = []
-    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data) }
-    mediaRecorder.start(100)
+    mediaRec.ondataavailable = e => { if (e.data.size > 0) audioChunks.push(e.data) }
+    mediaRec.start(100)
     isRecording = true; updateUI()
   } catch { alert('Microphone access denied.') }
 }
 
-function stopRecording() {
-  if (!isRecording || !mediaRecorder) return
+function stopRec() {
+  if (!isRecording || !mediaRec) return
   isRecording = false
-  mediaRecorder.onstop = async () => {
-    const mime = mediaRecorder.mimeType
+  mediaRec.onstop = async () => {
+    const mime = mediaRec.mimeType
     const blob = new Blob(audioChunks, { type: mime })
-    mediaRecorder.stream.getTracks().forEach(t => t.stop())
-    mediaRecorder = null
+    mediaRec.stream.getTracks().forEach(t => t.stop())
+    mediaRec = null
     if (blob.size >= 1000) await pipeline(blob, mime)
     else updateUI()
   }
-  mediaRecorder.stop()
-  updateUI()
+  mediaRec.stop(); updateUI()
 }
 
-micBtn.addEventListener('pointerdown', e => { e.currentTarget.setPointerCapture(e.pointerId); startRecording() })
-micBtn.addEventListener('pointerup',   stopRecording)
-micBtn.addEventListener('pointerleave',stopRecording)
+micBtn.addEventListener('pointerdown', e => { e.currentTarget.setPointerCapture(e.pointerId); startRec() })
+micBtn.addEventListener('pointerup',   stopRec)
+micBtn.addEventListener('pointerleave',stopRec)
 
-// ──────────────────────────────────────────────────────────────────────────────
-// PIPELINE
-// ──────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// PIPELINE: STT → LLM → TTS
+// ══════════════════════════════════════════════════════════════════════════════
 async function pipeline(blob, mime) {
   isProcessing = true; updateUI()
   const typingEl = appendTyping()
   try {
-    // Whisper
+    // ── Whisper (verbose_json for pronunciation) ──
     const ext = mime.includes('mp4') ? 'm4a' : 'webm'
     const fd  = new FormData()
     fd.append('file', blob, `rec.${ext}`)
     fd.append('model', 'whisper-1')
+    fd.append('response_format', 'verbose_json')
+    fd.append('timestamp_granularities[]', 'segment')
+
     const sttRes = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-      method: 'POST', headers: { Authorization: `Bearer ${apiKey}` }, body: fd
+      method:'POST', headers:{ Authorization:`Bearer ${apiKey}` }, body:fd
     })
     if (!sttRes.ok) throw new Error(`Whisper ${sttRes.status}: ${await sttRes.text()}`)
-    const { text: transcript } = await sttRes.json()
-    if (!transcript?.trim()) throw new Error('Could not transcribe. Please speak more clearly.')
+    const sttData = await sttRes.json()
+    const transcript = (sttData.text || '').trim()
+    if (!transcript) throw new Error('Could not transcribe. Please speak more clearly.')
 
-    // GPT-4o
+    // Pronunciation score (English only)
+    let pronScore = null
+    if (sttData.language === 'en' && sttData.segments && sttData.segments.length > 0) {
+      const avg = sttData.segments.reduce((s,seg) => s + seg.avg_logprob, 0) / sttData.segments.length
+      pronScore = Math.min(100, Math.max(0, Math.round((1 + avg) * 100)))
+    }
+
+    // ── GPT-4o ──
+    const p   = PERSONAS[personaId]
+    const topic = TOPICS.find(t => t.id === topicId)
+    const sysPrompt = topic?.hint ? `${p.prompt}\n\nCurrent topic: ${topic.hint}` : p.prompt
+
     const msgs = [
-      { role:'system', content: PERSONAS[personaId].prompt },
+      { role:'system', content: sysPrompt },
       ...history.slice(-20),
       { role:'user', content: transcript }
     ]
     const chatRes = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
-      body: JSON.stringify({ model:'gpt-4o', response_format:{ type:'json_object' }, temperature: personaId==='sterling'?.6:.8, max_tokens:400, messages: msgs })
+      method:'POST',
+      headers:{ Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:'gpt-4o', response_format:{type:'json_object'}, temperature: personaId==='sterling'?.6:.8, max_tokens:400, messages:msgs })
     })
     if (!chatRes.ok) throw new Error(`GPT-4o ${chatRes.status}: ${await chatRes.text()}`)
-    const cd  = await chatRes.json()
+    const cd = await chatRes.json()
     const parsed = JSON.parse(cd.choices[0].message.content)
     const correction = parsed.correction ?? null
-    const reply      = parsed.reply ?? "Sorry, couldn't reply."
+    const reply      = parsed.reply ?? "Sorry, I couldn't reply."
 
-    // TTS
+    // ── TTS ──
     const ttsRes = await fetch('https://api.openai.com/v1/audio/speech', {
-      method: 'POST',
-      headers: { Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
-      body: JSON.stringify({ model:'tts-1', voice: PERSONAS[personaId].voice, input: reply, response_format:'mp3' })
+      method:'POST',
+      headers:{ Authorization:`Bearer ${apiKey}`, 'Content-Type':'application/json' },
+      body: JSON.stringify({ model:'tts-1', voice: p.voice, input: reply, response_format:'mp3' })
     })
     if (!ttsRes.ok) throw new Error(`TTS ${ttsRes.status}: ${await ttsRes.text()}`)
-    const audioBuf = await ttsRes.arrayBuffer()
-    const audioUrl = URL.createObjectURL(new Blob([audioBuf], { type:'audio/mpeg' }))
+    const audioUrl = URL.createObjectURL(new Blob([await ttsRes.arrayBuffer()], { type:'audio/mpeg' }))
 
     typingEl.remove()
-    appendUser(transcript, correction)
+    appendUser(transcript, correction, pronScore)
     appendAI(reply)
     history.push({ role:'user', content:transcript })
     history.push({ role:'assistant', content:reply })
 
-    isProcessing = false
-    isSpeaking   = true
-    updateUI()
-    startAmplitude()
+    // Show report button after first user msg
+    const userCount = history.filter(h=>h.role==='user').length
+    if (userCount >= 1) reportBtn.style.display = 'flex'
 
-    ttsAudio.src = audioUrl
-    audioCtx?.resume()
-    ttsAudio.play()
-    ttsAudio.onended = () => {
-      stopAmplitude(); isSpeaking = false
-      URL.revokeObjectURL(audioUrl); updateUI()
-    }
+    isProcessing = false; isSpeaking = true; updateUI()
+    startAmp(); audioCtx?.resume()
+    ttsAudio.src = audioUrl; ttsAudio.play()
+    ttsAudio.onended = () => { stopAmp(); isSpeaking = false; URL.revokeObjectURL(audioUrl); updateUI() }
   } catch(err) {
     typingEl.remove()
     appendAI(`⚠️ ${err.message}`)
@@ -659,41 +676,255 @@ async function pipeline(blob, mime) {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// UI HELPERS
-// ──────────────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// SESSION REPORT
+// ══════════════════════════════════════════════════════════════════════════════
+reportBtn.onclick = generateReport
+async function generateReport() {
+  const msgs = collectMessages()
+  if (!msgs.length) return
+  isGenReport = true; updateUI()
+  try {
+    const body = JSON.stringify({
+      messages: msgs,
+      personaId,
+      topicId,
+    })
+    const res = await fetch('/api/report', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body
+    })
+    if (!res.ok) throw new Error(`Report API ${res.status}`)
+    const report = await res.json()
+    const userMsgs  = msgs.filter(m=>m.role==='user')
+    const pronScores = userMsgs.map(m=>m.pronunciationScore).filter(s=>s!==null)
+    const avgPron = pronScores.length ? Math.round(pronScores.reduce((a,b)=>a+b,0)/pronScores.length) : null
+    showReportModal(report, userMsgs.length, avgPron)
+    saveSessionLocal(report, avgPron)
+  } catch(err) { alert(`리포트 생성 실패: ${err.message}`) }
+  finally { isGenReport = false; updateUI() }
+}
+
+function collectMessages() {
+  const els = chat.querySelectorAll('[data-msg]')
+  const out = []
+  els.forEach(el => {
+    const role   = el.dataset.msg
+    const text   = el.dataset.text
+    const corr   = el.dataset.corr  || null
+    const pron   = el.dataset.pron  !== undefined ? Number(el.dataset.pron) : null
+    out.push({ role, text, correction: role==='user'?corr:null, pronunciationScore: role==='user'?pron:null })
+  })
+  return out
+}
+
+function showReportModal(report, msgCount, avgPron) {
+  const ov = document.createElement('div')
+  ov.className = 'overlay'
+  const scoreColor = report.overallScore >= 80 ? '#4ade80' : report.overallScore >= 60 ? '#fbbf24' : '#f87171'
+  ov.innerHTML = `
+  <div class="modal">
+    <div class="modal-hdr">
+      <h2>📊 Session Report</h2>
+      <button class="modal-close" onclick="this.closest('.overlay').remove()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="score-row">
+        <div style="text-align:center">
+          <div class="score-num" style="color:${scoreColor}">${report.overallScore}</div>
+          <div class="score-lbl">Overall Score</div>
+        </div>
+        <div class="score-divider"></div>
+        <div style="text-align:center">
+          <div class="score-num" style="color:var(--ind-h)">${msgCount}</div>
+          <div class="score-lbl">Messages</div>
+        </div>
+        ${avgPron !== null ? `<div class="score-divider"></div>
+        <div style="text-align:center">
+          <div class="score-num" style="color:${avgPron>=80?'#4ade80':avgPron>=60?'#fbbf24':'#f87171'}">${avgPron}%</div>
+          <div class="score-lbl">발음 avg</div>
+        </div>` : ''}
+      </div>
+      <div class="rep-feedback">${esc(report.overallFeedback || '')}</div>
+      ${report.strengths?.length ? `<div class="rep-section"><h3>⭐ 잘한 점</h3>${report.strengths.map(s=>`<div class="str-item">${esc(s)}</div>`).join('')}</div>` : ''}
+      ${report.corrections?.length ? `<div class="rep-section"><h3>📖 문법 교정 (${report.corrections.length})</h3>${report.corrections.map(c=>`<div class="corr-item"><div class="corr-orig">${esc(c.original)}</div><div class="corr-fix">${esc(c.corrected)}</div>${c.explanation?`<div class="corr-why">${esc(c.explanation)}</div>`:''}</div>`).join('')}</div>` : ''}
+      ${report.vocabularyHighlights?.length ? `<div class="rep-section"><h3>💬 어휘 하이라이트</h3><div>${report.vocabularyHighlights.map(v=>`<span class="tag">${esc(v)}</span>`).join('')}</div></div>` : ''}
+      ${report.recommendations?.length ? `<div class="rep-section"><h3>🎯 다음에 연습할 것</h3>${report.recommendations.map(r=>`<div class="rec-item">${esc(r)}</div>`).join('')}</div>` : ''}
+    </div>
+    <div class="modal-foot">
+      <button class="btn-sec" onclick="this.closest('.overlay').remove()">닫기</button>
+      <button class="btn-pri" onclick="this.closest('.overlay').remove(); resetSession()">새 대화 시작</button>
+    </div>
+  </div>`
+  document.body.appendChild(ov)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HISTORY (localStorage)
+// ══════════════════════════════════════════════════════════════════════════════
+function loadSessions() { try { return JSON.parse(localStorage.getItem('speakai_sessions')||'[]') } catch { return [] } }
+function saveSessions(s) { try { localStorage.setItem('speakai_sessions', JSON.stringify(s.slice(0,30))) } catch {} }
+
+function saveSessionLocal(report, avgPron) {
+  const msgs = collectMessages()
+  const stored = {
+    id: sessionId, personaId, topicId,
+    startedAt: sessionStart, endedAt: new Date().toISOString(),
+    messageCount: msgs.filter(m=>m.role==='user').length,
+    messages: msgs.map(m=>({...m, timestamp: new Date().toISOString()})),
+    avgPronunciationScore: avgPron, report
+  }
+  const sessions = loadSessions()
+  saveSessions([stored, ...sessions.filter(s=>s.id!==sessionId)])
+  updateHistBadge()
+}
+
+function updateHistBadge() {
+  const n = loadSessions().length
+  badge.style.display = n > 0 ? 'inline-flex' : 'none'
+  badge.textContent   = n > 9 ? '9+' : n
+}
+
+histBtn.onclick = showHistDrawer
+function showHistDrawer() {
+  const sessions = loadSessions()
+  const ov = document.createElement('div')
+  ov.className = 'drawer-overlay'
+  const items = sessions.length
+    ? sessions.map(s => {
+        const p     = PERSONAS[s.personaId] || PERSONAS.kai
+        const topic = s.topicId ? TOPICS.find(t=>t.id===s.topicId) : null
+        const sc    = s.report?.overallScore
+        const scColor = sc >= 80 ? '#4ade80' : sc >= 60 ? '#fbbf24' : '#f87171'
+        const scBdr   = sc >= 80 ? 'rgba(74,222,128,.3)' : sc >= 60 ? 'rgba(251,191,36,.3)' : 'rgba(248,113,113,.3)'
+        const msgsHtml = (s.messages||[]).slice(0,10).map(m =>
+          `<div class="${m.role==='user'?'hm-user':'hm-ai'}">${esc(m.text)}</div>`
+        ).join('')
+        return `<div class="hist-item" id="hi-${s.id}">
+          <div class="hist-row" onclick="toggleHist('${s.id}')">
+            <span style="font-size:20px">${p.emoji}</span>
+            <div class="hist-meta">
+              <div class="hist-title">${p.name}
+                ${topic?`<span class="topic-chip">${topic.emoji} ${topic.nameKo}</span>`:''}
+                ${sc!=null?`<span class="score-chip" style="color:${scColor};border-color:${scBdr}">${sc}점</span>`:''}
+              </div>
+              <div class="hist-sub">${fmtDate(s.startedAt)} · ${s.messageCount}개</div>
+            </div>
+            <span style="color:var(--mut);font-size:12px">▾</span>
+          </div>
+          <div class="hist-detail" id="hd-${s.id}">
+            <div class="hist-msgs">${msgsHtml}</div>
+            ${s.report?.overallFeedback?`<div class="hist-fbk">${esc(s.report.overallFeedback)}</div>`:''}
+            ${(s.report?.recommendations||[]).slice(0,2).map(r=>`<div style="font-size:11px;color:#38bdf8;margin-bottom:4px">→ ${esc(r)}</div>`).join('')}
+            <button class="hist-del" onclick="delSession('${s.id}', this)">🗑 삭제</button>
+          </div>
+        </div>`
+      }).join('')
+    : `<div class="empty-hist"><div>📭</div>저장된 대화가 없습니다.</div>`
+
+  ov.innerHTML = `
+  <div class="drawer-backdrop" onclick="this.parentElement.remove()"></div>
+  <div class="drawer">
+    <div class="drawer-hdr">
+      <h2>🕐 대화 기록</h2>
+      <button class="modal-close" onclick="this.closest('.drawer-overlay').remove()">✕</button>
+    </div>
+    <div class="drawer-body">${items}</div>
+  </div>`
+  document.body.appendChild(ov)
+}
+
+function toggleHist(id) {
+  const d = document.getElementById('hd-'+id)
+  if (d) d.classList.toggle('open')
+}
+function delSession(id, btn) {
+  const sessions = loadSessions().filter(s=>s.id!==id)
+  saveSessions(sessions)
+  updateHistBadge()
+  btn.closest('.hist-item').remove()
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// SESSION RESET
+// ══════════════════════════════════════════════════════════════════════════════
+resetBtn.onclick = resetSession
+function resetSession() {
+  stopAmp(); isSpeaking = false
+  ttsAudio.pause(); ttsAudio.src = ''
+  history = []; sessionId = uid(); sessionStart = new Date().toISOString()
+  chat.innerHTML = ''
+  reportBtn.style.display = 'none'
+  appendAI(PERSONAS[personaId].greeting)
+  updateUI()
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// KEY SAVE
+// ══════════════════════════════════════════════════════════════════════════════
+keySave.onclick = () => {
+  const v = keyInput.value.trim()
+  if (!v) { alert('Please enter your OpenAI API key.'); return }
+  apiKey = v; localStorage.setItem('oai_key', v)
+  keySave.textContent = 'Saved ✓'
+  setTimeout(() => keySave.textContent = 'Save', 1500)
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// UI STATE
+// ══════════════════════════════════════════════════════════════════════════════
+function charState() { return isSpeaking?'speaking':isProcessing||isGenReport?'thinking':isRecording?'listening':'idle' }
+
 function updateUI() {
-  const state = charState()
-  micBtn.disabled = isProcessing || isSpeaking
-  micBtn.classList.toggle('recording', isRecording)
-  iconMic.style.display  = (!isRecording && !isProcessing && !isSpeaking) ? '' : 'none'
-  iconMoff.style.display = isRecording ? '' : 'none'
-  iconSpin.style.display = (isProcessing || isSpeaking) ? '' : 'none'
-  statusText.textContent =
-    isRecording  ? 'Release to send' :
-    isProcessing ? 'Processing…' :
+  const st  = charState()
+  const dis = isProcessing || isSpeaking || isGenReport
+  micBtn.disabled = dis
+  micBtn.classList.toggle('rec', isRecording)
+  icMic.style.display  = (!isRecording && !dis) ? '' : 'none'
+  icOff.style.display  = isRecording ? '' : 'none'
+  icSpin.style.display = dis ? '' : 'none'
+
+  statusTxt.textContent =
+    isRecording  ? 'Release to send'        :
+    isGenReport  ? '리포트 생성 중…'         :
+    isProcessing ? 'Processing…'             :
     isSpeaking   ? `${PERSONAS[personaId].name} is speaking…` :
-    'Hold to speak · 한국어도 OK'
+                   'Hold to speak · 한국어도 OK'
 
-  const badgeStyle = {
-    speaking:  { bg:'rgba(99,102,241,.8)',  color:'#fff',     label:'Speaking'  },
-    listening: { bg:'rgba(239,68,68,.8)',   color:'#fff',     label:'Listening' },
-    thinking:  { bg:'rgba(217,119,6,.8)',   color:'#fff',     label:'Thinking…' },
-    idle:      { bg:'rgba(51,65,85,.6)',    color:'#94a3b8',  label:'Idle'      },
-  }[state]
-  stateBadge.style.background = badgeStyle.bg
-  stateBadge.style.color      = badgeStyle.color
-  stateBadge.textContent      = badgeStyle.label
+  const badge = {
+    speaking:  { bg:'rgba(99,102,241,.8)',  color:'#fff',       label:'Speaking'  },
+    listening: { bg:'rgba(239,68,68,.8)',   color:'#fff',       label:'Listening' },
+    thinking:  { bg:'rgba(217,119,6,.8)',   color:'#fff',       label:'Thinking…' },
+    idle:      { bg:'rgba(51,65,85,.6)',    color:'#94a3b8',    label:'Idle'      },
+  }[st]
+  stateBadge.style.background = badge.bg
+  stateBadge.style.color      = badge.color
+  stateBadge.textContent      = badge.label
+
+  if (isGenReport) {
+    reportBtn.textContent = '분석 중…'
+    reportBtn.disabled = true
+  } else {
+    reportBtn.innerHTML = `<svg viewBox="0 0 24 24" style="width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/></svg> 리포트`
+    reportBtn.disabled = false
+  }
 }
 
-function charState() {
-  return isSpeaking ? 'speaking' : isProcessing ? 'thinking' : isRecording ? 'listening' : 'idle'
-}
+// ══════════════════════════════════════════════════════════════════════════════
+// DOM HELPERS
+// ══════════════════════════════════════════════════════════════════════════════
+function pronClass(s) { return s>=80?'pron-ex':s>=60?'pron-gd':s>=40?'pron-ok':'pron-nw' }
+function pronLabel(s) { return s>=80?'Excellent':s>=60?'Good':s>=40?'Fair':'Needs work' }
 
-function appendUser(text, correction) {
+function appendUser(text, correction, pronScore) {
   const w = document.createElement('div')
-  w.className = 'msg-wrap user'
-  w.innerHTML = `<div class="bubble">${esc(text)}</div>`
+  w.className = 'mw user'
+  w.innerHTML = `<div class="bub" data-msg="user" data-text="${esc2(text)}" data-corr="${esc2(correction||'')}" ${pronScore!==null?`data-pron="${pronScore}"`:''}>${esc(text)}</div>`
+  if (pronScore !== null) {
+    const pb = document.createElement('span')
+    pb.className = `pron-badge ${pronClass(pronScore)}`
+    pb.textContent = `🎙 ${pronScore}% · ${pronLabel(pronScore)}`
+    w.appendChild(pb)
+  }
   if (correction) {
     const c = document.createElement('div')
     c.className = 'correction'
@@ -705,23 +936,26 @@ function appendUser(text, correction) {
 
 function appendAI(text) {
   const w = document.createElement('div')
-  w.className = 'msg-wrap ai'
-  w.innerHTML = `<div class="ai-row"><div class="ai-av">${PERSONAS[personaId].emoji}</div><div class="bubble">${esc(text)}</div></div>`
+  w.className = 'mw ai'
+  w.innerHTML = `<div class="ai-row"><div class="ai-av">${PERSONAS[personaId].emoji}</div><div class="bub" data-msg="assistant" data-text="${esc2(text)}">${esc(text)}</div></div>`
   chat.appendChild(w); scrollChat()
 }
 
 function appendTyping() {
   const w = document.createElement('div')
-  w.className = 'msg-wrap ai'
+  w.className = 'mw ai'
   w.innerHTML = `<div class="ai-row"><div class="ai-av">${PERSONAS[personaId].emoji}</div><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`
-  chat.appendChild(w); scrollChat()
-  return w
+  chat.appendChild(w); scrollChat(); return w
 }
 
 function scrollChat() { chat.scrollTop = chat.scrollHeight }
-function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
-
-updateUI()
+function esc(s='') { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') }
+function esc2(s='') { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;') }
+function uid() { return Date.now()+'-'+Math.random().toString(36).slice(2,8) }
+function fmtDate(iso) {
+  const d = new Date(iso)
+  return d.toLocaleDateString('ko-KR',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})
+}
 </script>
 </body>
 </html>
