@@ -3,14 +3,13 @@ import OpenAI from "openai";
 import { PERSONAS, DEFAULT_PERSONA, PersonaId } from "@/lib/personas";
 import { getTopicById } from "@/lib/topics";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
 export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
   }
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   let formData: FormData;
   try {
@@ -35,6 +34,13 @@ export async function POST(req: NextRequest) {
   // Topic
   const topicId = formData.get("topicId");
   const topic = getTopicById(typeof topicId === "string" ? topicId : null);
+
+  // News context (optional — injected when user starts tutor from news page)
+  let newsArticle: { title: string; summaryEn: string; openingQuestion: string } | null = null;
+  const newsArticleRaw = formData.get("newsArticle");
+  if (typeof newsArticleRaw === "string") {
+    try { newsArticle = JSON.parse(newsArticleRaw); } catch { /* ignore */ }
+  }
 
   // Conversation history
   let history: HistoryMessage[] = [];
@@ -84,12 +90,18 @@ export async function POST(req: NextRequest) {
   }
 
   // ── Step 2: GPT-4o with persona + topic ──────────────────────────────────
-  // Append topic hint to the system prompt if a topic is selected
-  const systemPrompt = topic
-    ? `${persona.systemPrompt}\n\n**Current topic focus:** ${topic.promptHint}`
-    : persona.systemPrompt;
+  // Build system prompt: persona base + optional topic + optional news context
+  let systemPrompt = persona.systemPrompt;
+  if (topic) {
+    systemPrompt += `\n\n**Current topic focus:** ${topic.promptHint}`;
+  }
+  if (newsArticle) {
+    systemPrompt += `\n\n**News article to discuss:**\nTitle: ${newsArticle.title}\nSummary: ${newsArticle.summaryEn}\nOpening question: ${newsArticle.openingQuestion}\n\nGuide the conversation around this news article. Ask follow-up questions about the learner's opinions on this topic.`;
+  }
 
+  type EmotionValue = "neutral" | "happy" | "sad" | "surprised" | "thinking";
   let correction: string | null = null;
+  let emotion: EmotionValue = "neutral";
   let reply: string;
   try {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
@@ -109,9 +121,11 @@ export async function POST(req: NextRequest) {
     const parsed = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as {
       correction?: string | null;
       reply?: string;
+      emotion?: string;
     };
     correction = parsed.correction ?? null;
     reply      = parsed.reply ?? "Sorry, I couldn't generate a reply.";
+    emotion    = (parsed.emotion as typeof emotion) ?? "neutral";
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "GPT-4o request failed." },
@@ -140,6 +154,7 @@ export async function POST(req: NextRequest) {
     transcript,
     correction,
     reply,
+    emotion,
     audio: audioBase64,
     pronunciationScore,
     language: detectedLanguage,

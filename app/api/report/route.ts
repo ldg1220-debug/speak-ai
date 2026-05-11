@@ -4,8 +4,6 @@ import { PERSONAS, PersonaId, DEFAULT_PERSONA } from "@/lib/personas";
 import { getTopicById } from "@/lib/topics";
 import type { SessionReportData } from "@/lib/storage";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
 interface ReportRequestMessage {
   role: "user" | "assistant";
   text: string;
@@ -17,6 +15,7 @@ export async function POST(req: NextRequest) {
   if (!process.env.OPENAI_API_KEY) {
     return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
   }
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
   let body: {
     messages: ReportRequestMessage[];

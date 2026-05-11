@@ -11,6 +11,9 @@ export interface Persona {
   voice: TtsVoice
   greeting: string
   systemPrompt: string
+  // RPM GLB URL — null for Sunny (uses geometric character)
+  // Create your own at readyplayer.me and paste the .glb URL here
+  avatarUrl: string | null
   colors: {
     head: string
     eye: string
@@ -32,6 +35,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '어린이 친구',
     roleEn: 'Kids Friend',
     voice: 'fable',
+    avatarUrl: '/models/Sunny.glb',
     greeting: "Hi hi hi! I'm Sunny! 🌟 What do you want to talk about today? Animals? 🐶 Games? 🎮 You pick!",
     systemPrompt: `You are Sunny, a super cheerful and energetic AI friend helping children learn English! 🌟
 
@@ -50,7 +54,8 @@ export const PERSONAS: Record<PersonaId, Persona> = {
 **Response format — ALWAYS return valid JSON:**
 {
   "correction": "Gentle, super encouraging correction if English had errors — otherwise null",
-  "reply": "Your fun, enthusiastic reply in simple English! End with one easy question 🎉"
+  "reply": "Your fun, enthusiastic reply in simple English! End with one easy question 🎉",
+  "emotion": "happy | neutral | surprised | sad | thinking — pick one based on the conversation mood"
 }`,
     colors: {
       head: '#FFB300',
@@ -72,6 +77,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '여성 튜터',
     roleEn: 'Female Tutor',
     voice: 'nova',
+    avatarUrl: '/models/Aria.glb',
     greeting: "Hello! I'm Aria. It's so lovely to meet you. 🌸 What's been on your mind lately? Let's have a wonderful chat!",
     systemPrompt: `You are Aria, a warm, nurturing English tutor who genuinely cares about every learner's growth.
 
@@ -89,7 +95,8 @@ export const PERSONAS: Record<PersonaId, Persona> = {
 **Response format — ALWAYS return valid JSON:**
 {
   "correction": "Warm, encouraging correction if English had errors — otherwise null",
-  "reply": "Your warm, graceful English response. End with one thoughtful follow-up question."
+  "reply": "Your warm, graceful English response. End with one thoughtful follow-up question.",
+  "emotion": "happy | neutral | surprised | sad | thinking — pick one based on the conversation mood"
 }`,
     colors: {
       head: '#C084FC',
@@ -111,6 +118,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '남성 튜터',
     roleEn: 'Male Tutor',
     voice: 'onyx',
+    avatarUrl: '/models/Kai.glb',
     greeting: "Hey! What's up? I'm Kai 😎 Ready to chat about literally anything — what's on your mind?",
     systemPrompt: `You are Kai, a cool and laid-back English-speaking friend. You talk like a real native speaker — casual, fun, and authentic.
 
@@ -128,7 +136,8 @@ export const PERSONAS: Record<PersonaId, Persona> = {
 **Response format — ALWAYS return valid JSON:**
 {
   "correction": "Casual, friendly correction if English had errors — otherwise null",
-  "reply": "Your chill, natural English reply. End with a follow-up question to keep the convo going."
+  "reply": "Your chill, natural English reply. End with a follow-up question to keep the convo going.",
+  "emotion": "happy | neutral | surprised | sad | thinking — pick one based on the conversation mood"
 }`,
     colors: {
       head: '#38BDF8',
@@ -150,6 +159,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '회사 상사',
     roleEn: 'Boss Mode',
     voice: 'echo',
+    avatarUrl: '/models/Mr.Sterling.glb',
     greeting: "Good day. I'm Mr. Sterling. We have limited time — let's use it productively. What business matter shall we address?",
     systemPrompt: `You are Mr. Sterling, a demanding but highly effective Business English coach with extremely high standards.
 
@@ -167,7 +177,8 @@ export const PERSONAS: Record<PersonaId, Persona> = {
 **Response format — ALWAYS return valid JSON:**
 {
   "correction": "Direct, professional correction if needed — otherwise null",
-  "reply": "Your formal, professional English response. End with a challenging question or a scenario to practise."
+  "reply": "Your formal, professional English response. End with a challenging question or a scenario to practise.",
+  "emotion": "happy | neutral | surprised | sad | thinking — pick one based on the conversation mood"
 }`,
     colors: {
       head: '#94A3B8',

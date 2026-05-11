@@ -1,50 +1,46 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import dynamic from "next/dynamic";
-import { Mic, MicOff, BookOpen, Loader2, RotateCcw, History, Square } from "lucide-react";
-import { PERSONAS, DEFAULT_PERSONA, PersonaId } from "@/lib/personas";
+import { Mic, MicOff, Loader2, History, Settings2, Send } from "lucide-react";
+import { PERSONAS } from "@/lib/personas";
+import { useCharacterStore, type Emotion } from "@/store/useCharacterStore";
+import { useAudioAnalyzer } from "@/hooks/useAudioAnalyzer";
 import {
   loadSessions,
   saveSession,
   deleteSession,
-  generateSessionId,
   calcAvgPronunciation,
   type StoredSession,
   type SessionReportData,
   type StoredMessage,
 } from "@/lib/storage";
-import PersonaSelector from "@/components/PersonaSelector";
-import TopicSelector   from "@/components/TopicSelector";
-import SessionReport   from "@/components/SessionReport";
-import HistoryDrawer   from "@/components/HistoryDrawer";
+import TutorStep     from "@/components/TutorStep";
+import TopicStep     from "@/components/TopicStep";
+import SessionReport from "@/components/SessionReport";
+import HistoryDrawer from "@/components/HistoryDrawer";
 import type { CharacterState } from "@/components/CharacterScene";
+import { getTopicById } from "@/lib/topics";
 
 const CharacterScene = dynamic(() => import("@/components/CharacterScene"), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-full flex items-center justify-center text-slate-700 text-xs">
-      Loading…
+    <div className="w-full h-full flex items-center justify-center bg-gradient-to-b from-sky-300 to-sky-100">
+      <div className="w-8 h-8 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
     </div>
   ),
 });
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+type Step = "tutor" | "topic" | "chat";
 
-type HistoryEntry = { role: "user" | "assistant"; content: string };
-
-type Message =
-  | { role: "user"; text: string; correction: string | null; pronunciationScore: number | null }
-  | { role: "assistant"; text: string };
-
-// ─── Pronunciation pill ───────────────────────────────────────────────────────
+// ─── Pronunciation badge ──────────────────────────────────────────────────────
 
 function PronBadge({ score }: { score: number }) {
   const [color, label] =
-    score >= 80 ? ["text-green-400 bg-green-400/10 border-green-400/25", "Excellent"] :
-    score >= 60 ? ["text-amber-400 bg-amber-400/10 border-amber-400/25", "Good"]      :
-    score >= 40 ? ["text-orange-400 bg-orange-400/10 border-orange-400/25", "Fair"]   :
-                  ["text-red-400 bg-red-400/10 border-red-400/25", "Needs work"];
+    score >= 80 ? ["text-emerald-400 bg-emerald-400/10 border-emerald-400/25", "Excellent"] :
+    score >= 60 ? ["text-amber-400  bg-amber-400/10  border-amber-400/25",  "Good"]      :
+    score >= 40 ? ["text-orange-400 bg-orange-400/10 border-orange-400/25", "Fair"]      :
+                  ["text-red-400    bg-red-400/10    border-red-400/25",    "Needs work"];
   return (
     <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${color}`}>
       🎙 {score}% · {label}
@@ -52,95 +48,76 @@ function PronBadge({ score }: { score: number }) {
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Typing dots ──────────────────────────────────────────────────────────────
+
+function TypingDots() {
+  return (
+    <div className="flex gap-1 items-center px-1 py-0.5">
+      {[0, 160, 320].map((d) => (
+        <span
+          key={d}
+          className="w-2 h-2 bg-slate-500 rounded-full animate-bounce"
+          style={{ animationDelay: `${d}ms`, animationDuration: "900ms" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+// ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function Home() {
-  // ── Core state ──
-  const [personaId, setPersonaId]       = useState<PersonaId>(DEFAULT_PERSONA);
-  const [topicId, setTopicId]           = useState<string | null>(null);
-  const [messages, setMessages]         = useState<Message[]>([]);
-  const [history, setHistory]           = useState<HistoryEntry[]>([]);
-  const [sessionId, setSessionId]       = useState(() => generateSessionId());
-  const [sessionStart]                  = useState(() => new Date().toISOString());
+  const {
+    personaId, topicId, newsContext, sessionId, sessionStart,
+    messages, history,
+    isRecording, isProcessing, isSpeaking, isGeneratingReport,
+    autoStartChat,
+    setPersona, setTopicId, addMessage, addHistory, resetSession,
+    setIsRecording, setIsProcessing, setIsGeneratingReport, setCurrentEmotion,
+    setAutoStartChat,
+  } = useCharacterStore();
 
-  // ── UI state ──
-  const [isRecording, setIsRecording]           = useState(false);
-  const [isProcessing, setIsProcessing]         = useState(false);
-  const [isSpeaking, setIsSpeaking]             = useState(false);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
-  const [showReport, setShowReport]             = useState(false);
-  const [reportData, setReportData]             = useState<SessionReportData | null>(null);
-  const [showHistory, setShowHistory]           = useState(false);
-  const [sessions, setSessions]                 = useState<StoredSession[]>([]);
+  const [step, setStep]               = useState<Step>("tutor");
+  const [textInput, setTextInput]     = useState("");
+  const [showReport, setShowReport]   = useState(false);
+  const [reportData, setReportData]   = useState<SessionReportData | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [sessions, setSessions]       = useState<StoredSession[]>([]);
+
+  const { playAudio, amplitudeRef } = useAudioAnalyzer();
+  const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
+  const audioChunksRef    = useRef<Blob[]>([]);
+  const chatEndRef        = useRef<HTMLDivElement | null>(null);
+  const textInputRef      = useRef<HTMLTextAreaElement>(null);
 
   const characterState: CharacterState =
     isSpeaking   ? "speaking"  :
     isProcessing ? "thinking"  :
     isRecording  ? "listening" : "idle";
 
-  // ── Refs ──
-  const mediaRecorderRef   = useRef<MediaRecorder | null>(null);
-  const audioChunksRef     = useRef<Blob[]>([]);
-  const audioRef           = useRef<HTMLAudioElement | null>(null);
-  const chatEndRef         = useRef<HTMLDivElement | null>(null);
-  const amplitudeRef       = useRef(0);
-  const audioCtxRef        = useRef<AudioContext | null>(null);
-  const analyserRef        = useRef<AnalyserNode | null>(null);
-  const ampRafRef          = useRef<number | null>(null);
-  const audioSourceReady   = useRef(false);
-  const sessionStartRef    = useRef(sessionStart);
+  const disabled         = isProcessing || isSpeaking || isGeneratingReport;
+  const userMessageCount = messages.filter((m) => m.role === "user").length;
+  const allScores        = messages.filter((m) => m.role === "user").map((m) => m.pronunciationScore ?? null);
+  const avgPron          = calcAvgPronunciation(allScores);
 
-  // ── Init ──
-  useEffect(() => {
-    setMessages([{ role: "assistant", text: PERSONAS[personaId].greeting }]);
-    setHistory([]);
-  }, [personaId]);
+  useEffect(() => { setSessions(loadSessions()); }, []);
 
+  // Auto-start chat when coming from news page
   useEffect(() => {
-    setSessions(loadSessions());
+    if (autoStartChat) {
+      setAutoStartChat(false);
+      setStep("chat");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isProcessing]);
+    if (step === "chat") chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isProcessing, step]);
 
-  // ── AudioContext (amplitude) ──────────────────────────────────────────────
-
-  function initAudioContext() {
-    if (!audioRef.current || audioSourceReady.current) return;
-    try {
-      audioCtxRef.current = new AudioContext();
-      analyserRef.current = audioCtxRef.current.createAnalyser();
-      analyserRef.current.fftSize = 256;
-      const src = audioCtxRef.current.createMediaElementSource(audioRef.current);
-      src.connect(analyserRef.current);
-      analyserRef.current.connect(audioCtxRef.current.destination);
-      audioSourceReady.current = true;
-    } catch (e) { console.warn("AudioContext:", e); }
-  }
-
-  function startAmplitude() {
-    if (!analyserRef.current) return;
-    const data = new Uint8Array(analyserRef.current.frequencyBinCount);
-    const tick = () => {
-      analyserRef.current!.getByteFrequencyData(data);
-      amplitudeRef.current = data.reduce((a, b) => a + b, 0) / data.length / 128;
-      ampRafRef.current = requestAnimationFrame(tick);
-    };
-    tick();
-  }
-
-  function stopAmplitude() {
-    if (ampRafRef.current) cancelAnimationFrame(ampRafRef.current);
-    ampRafRef.current = null;
-    amplitudeRef.current = 0;
-  }
-
-  // ── Recording ─────────────────────────────────────────────────────────────
+  // ── Recording ──────────────────────────────────────────────────────────────
 
   const startRecording = useCallback(async () => {
     if (isProcessing || isRecording || isSpeaking) return;
-    initAudioContext();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
@@ -154,7 +131,7 @@ export default function Home() {
     } catch {
       alert("Microphone access denied. Please allow microphone access and try again.");
     }
-  }, [isProcessing, isRecording, isSpeaking]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isProcessing, isRecording, isSpeaking, setIsRecording]);
 
   const stopRecording = useCallback(() => {
     if (!mediaRecorderRef.current || !isRecording) return;
@@ -166,9 +143,10 @@ export default function Home() {
     };
     mediaRecorderRef.current.stop();
     setIsRecording(false);
-  }, [isRecording]); // eslint-disable-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRecording, setIsRecording]);
 
-  // ── Send audio & process ──────────────────────────────────────────────────
+  // ── Send audio (voice) ─────────────────────────────────────────────────────
 
   const sendAudio = async (blob: Blob, mimeType: string) => {
     setIsProcessing(true);
@@ -179,6 +157,7 @@ export default function Home() {
       fd.append("history", JSON.stringify(history));
       fd.append("personaId", personaId);
       if (topicId) fd.append("topicId", topicId);
+      if (newsContext) fd.append("newsArticle", JSON.stringify(newsContext));
 
       const res = await fetch("/api/chat", { method: "POST", body: fd });
       if (!res.ok) {
@@ -191,54 +170,82 @@ export default function Home() {
         correction: string | null;
         reply: string;
         audio: string;
+        emotion: Emotion;
         pronunciationScore: number | null;
         language: string;
       } = await res.json();
 
-      const userMsg: Message = {
-        role: "user",
-        text: data.transcript,
-        correction: data.correction,
-        pronunciationScore: data.pronunciationScore,
-      };
-      const aiMsg: Message = { role: "assistant", text: data.reply };
+      addMessage({ role: "user", text: data.transcript, correction: data.correction, pronunciationScore: data.pronunciationScore });
+      addMessage({ role: "assistant", text: data.reply, emotion: data.emotion ?? "neutral" });
+      addHistory({ role: "user",      content: data.transcript });
+      addHistory({ role: "assistant", content: data.reply });
+      setCurrentEmotion(data.emotion ?? "neutral");
+      setIsProcessing(false);
 
-      setMessages((prev) => [...prev, userMsg, aiMsg]);
-      setHistory((prev) => [
-        ...prev,
-        { role: "user",      content: data.transcript },
-        { role: "assistant", content: data.reply      },
-      ]);
-
-      // Play TTS
-      if (data.audio && audioRef.current) {
+      if (data.audio) {
         const bytes = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
-        const url = URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
-        audioRef.current.src = url;
-        audioCtxRef.current?.resume();
-        setIsProcessing(false);
-        setIsSpeaking(true);
-        startAmplitude();
-        audioRef.current.play();
-        audioRef.current.onended = () => {
-          stopAmplitude();
-          setIsSpeaking(false);
-          URL.revokeObjectURL(url);
-        };
-        return;
+        await playAudio(bytes.buffer);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
-      setMessages((prev) => [...prev, { role: "assistant", text: `⚠️ ${msg}` }]);
+      addMessage({ role: "assistant", text: `⚠️ ${msg}` });
+      setIsProcessing(false);
     }
-    setIsProcessing(false);
   };
 
-  // ── Session report & save ─────────────────────────────────────────────────
+  // ── Send text (keyboard) ───────────────────────────────────────────────────
+
+  const sendText = useCallback(async () => {
+    const text = textInput.trim();
+    if (!text || disabled) return;
+    setTextInput("");
+    if (textInputRef.current) {
+      textInputRef.current.style.height = "auto";
+    }
+
+    // Add user message immediately
+    addMessage({ role: "user", text, correction: null, pronunciationScore: null });
+    addHistory({ role: "user", content: text });
+    setIsProcessing(true);
+
+    try {
+      const res = await fetch("/api/chat/text", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, history, personaId, topicId, newsArticle: newsContext }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(err.error ?? "Request failed");
+      }
+
+      const data: {
+        reply: string;
+        correction: string | null;
+        emotion: Emotion;
+        audio: string;
+      } = await res.json();
+
+      addMessage({ role: "assistant", text: data.reply, emotion: data.emotion ?? "neutral" });
+      addHistory({ role: "assistant", content: data.reply });
+      setCurrentEmotion(data.emotion ?? "neutral");
+      setIsProcessing(false);
+
+      if (data.audio) {
+        const bytes = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
+        await playAudio(bytes.buffer);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      addMessage({ role: "assistant", text: `⚠️ ${msg}` });
+      setIsProcessing(false);
+    }
+  }, [textInput, disabled, history, personaId, topicId, newsContext, addMessage, addHistory, setIsProcessing, setCurrentEmotion, playAudio]);
+
+  // ── Session report ─────────────────────────────────────────────────────────
 
   const handleEndSession = useCallback(async () => {
-    const userMsgs = messages.filter((m) => m.role === "user");
-    if (userMsgs.length === 0) return;
+    if (userMessageCount === 0) return;
     setIsGeneratingReport(true);
     try {
       const res = await fetch("/api/report", {
@@ -246,40 +253,29 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: messages.map((m) => ({
-            role: m.role,
-            text: m.text,
+            role: m.role, text: m.text,
             correction: m.role === "user" ? m.correction : null,
             pronunciationScore: m.role === "user" ? m.pronunciationScore : null,
           })),
-          personaId,
-          topicId,
+          personaId, topicId,
         }),
       });
       const report: SessionReportData = await res.json();
       setReportData(report);
       setShowReport(true);
 
-      // Persist to localStorage
       const storedMsgs: StoredMessage[] = messages.map((m) => ({
-        role: m.role,
-        text: m.text,
-        correction: m.role === "user" ? m.correction : null,
-        pronunciationScore: m.role === "user" ? m.pronunciationScore : null,
+        role: m.role, text: m.text,
+        correction: m.role === "user" ? (m.correction ?? null) : null,
+        pronunciationScore: m.role === "user" ? (m.pronunciationScore ?? null) : null,
         timestamp: new Date().toISOString(),
       }));
-      const scores = messages
-        .filter((m): m is Extract<Message, { role: "user" }> => m.role === "user")
-        .map((m) => m.pronunciationScore);
+      const scores = messages.filter((m) => m.role === "user").map((m) => m.pronunciationScore ?? null);
       const stored: StoredSession = {
-        id: sessionId,
-        personaId,
-        topicId,
-        startedAt: sessionStartRef.current,
-        endedAt: new Date().toISOString(),
-        messageCount: userMsgs.length,
-        messages: storedMsgs,
-        avgPronunciationScore: calcAvgPronunciation(scores),
-        report,
+        id: sessionId, personaId, topicId,
+        startedAt: sessionStart, endedAt: new Date().toISOString(),
+        messageCount: userMessageCount, messages: storedMsgs,
+        avgPronunciationScore: calcAvgPronunciation(scores), report,
       };
       saveSession(stored);
       setSessions(loadSessions());
@@ -289,34 +285,14 @@ export default function Home() {
     } finally {
       setIsGeneratingReport(false);
     }
-  }, [messages, personaId, topicId, sessionId]);
-
-  // ── New session ───────────────────────────────────────────────────────────
+  }, [messages, userMessageCount, personaId, topicId, sessionId, sessionStart, setIsGeneratingReport]);
 
   function startNewSession() {
     setShowReport(false);
     setReportData(null);
-    setSessionId(generateSessionId());
-    setMessages([{ role: "assistant", text: PERSONAS[personaId].greeting }]);
-    setHistory([]);
-    stopAmplitude();
-    setIsSpeaking(false);
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
-  }
-
-  // ── Persona / topic switching ─────────────────────────────────────────────
-
-  function handlePersonaSelect(id: PersonaId) {
-    if (id === personaId) { startNewSession(); return; }
-    stopAmplitude();
-    setIsSpeaking(false);
-    if (audioRef.current) { audioRef.current.pause(); audioRef.current.src = ""; }
-    setPersonaId(id);
-    setSessionId(generateSessionId());
-  }
-
-  function handleTopicSelect(id: string | null) {
-    setTopicId(id);
+    setTextInput("");
+    resetSession();
+    setStep("tutor");
   }
 
   function handleDeleteSession(id: string) {
@@ -324,133 +300,162 @@ export default function Home() {
     setSessions(loadSessions());
   }
 
-  // ── Pointer (hold to speak) ───────────────────────────────────────────────
-
   const handlePointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
     startRecording();
   };
   const handlePointerUp = () => stopRecording();
 
-  const disabled = isProcessing || isSpeaking || isGeneratingReport;
-  const userMessageCount = messages.filter((m) => m.role === "user").length;
-  const allScores = messages
-    .filter((m): m is Extract<Message, { role: "user" }> => m.role === "user")
-    .map((m) => m.pronunciationScore);
-  const avgPron = calcAvgPronunciation(allScores);
+  // ─── Step: Tutor Selection ─────────────────────────────────────────────────
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  if (step === "tutor") {
+    return (
+      <div className="flex flex-col h-full max-w-2xl mx-auto">
+        <TutorStep
+          selected={personaId}
+          onSelect={(id) => setPersona(id)}
+          onNext={() => setStep("topic")}
+        />
+      </div>
+    );
+  }
+
+  // ─── Step: Topic Selection ─────────────────────────────────────────────────
+
+  if (step === "topic") {
+    return (
+      <div className="flex flex-col h-full max-w-2xl mx-auto">
+        <TopicStep
+          personaId={personaId}
+          topicId={topicId}
+          onSelectTopic={setTopicId}
+          onBack={() => setStep("tutor")}
+          onStart={() => {
+            resetSession();
+            setStep("chat");
+          }}
+        />
+      </div>
+    );
+  }
+
+  // ─── Step: Chat ────────────────────────────────────────────────────────────
+
+  const currentTopic = getTopicById(topicId);
 
   return (
-    <div className="flex flex-col h-full max-w-2xl mx-auto">
+    <div className="flex flex-col h-full max-w-2xl mx-auto bg-[#0a0f1e] fade-up">
 
       {/* ── Header ── */}
-      <header className="flex items-center gap-2 px-3 py-3 border-b border-slate-700/60 bg-slate-900/90 backdrop-blur sticky top-0 z-10 shrink-0">
-        <div className="flex items-center justify-center w-8 h-8 rounded-xl bg-indigo-600 flex-shrink-0">
-          <BookOpen size={15} className="text-white" />
+      <header className="flex items-center gap-3 px-4 py-2.5 border-b border-slate-800/80 bg-slate-950/95 backdrop-blur sticky top-0 z-20 shrink-0">
+        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-lg flex-shrink-0">
+            {PERSONAS[personaId].emoji}
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <p className="text-sm font-bold text-white leading-tight">{PERSONAS[personaId].name}</p>
+              {currentTopic && (
+                <span className="text-[10px] font-semibold text-indigo-300 bg-indigo-500/15 px-1.5 py-0.5 rounded-md border border-indigo-500/20">
+                  {currentTopic.emoji} {currentTopic.nameKo}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-slate-500 mt-0.5 leading-none">
+              {PERSONAS[personaId].roleKo}
+              {avgPron !== null && <span className="text-slate-600"> · avg {avgPron}%</span>}
+            </p>
+          </div>
         </div>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-sm font-semibold text-slate-100 leading-tight">English Tutor AI</h1>
-          <p className="text-[11px] text-slate-500 truncate">
-            {PERSONAS[personaId].name}
-            {topicId && ` · ${topicId}`}
-            {avgPron !== null && ` · 발음 avg ${avgPron}%`}
-          </p>
-        </div>
-        {/* History button */}
-        <button
-          onClick={() => setShowHistory(true)}
-          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors relative"
-          title="대화 기록"
-        >
-          <History size={15} />
-          {sessions.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-indigo-600 rounded-full text-[8px] text-white flex items-center justify-center font-bold">
-              {sessions.length > 9 ? "9+" : sessions.length}
-            </span>
-          )}
-        </button>
-        {/* End session */}
-        {userMessageCount > 0 && (
+
+        <div className="flex items-center gap-1">
           <button
-            onClick={handleEndSession}
-            disabled={disabled || isGeneratingReport}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:bg-red-600/20 hover:text-red-400 text-[11px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-            title="세션 종료 및 리포트"
+            onClick={() => setShowHistory(true)}
+            className="relative p-2 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-xl transition-colors"
+            title="대화 기록"
           >
-            {isGeneratingReport ? (
-              <Loader2 size={11} className="animate-spin" />
-            ) : (
-              <Square size={11} />
+            <History size={15} />
+            {sessions.length > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-indigo-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold">
+                {sessions.length > 9 ? "9+" : sessions.length}
+              </span>
             )}
-            {isGeneratingReport ? "분석중…" : "리포트"}
           </button>
-        )}
-        {/* Reset */}
-        <button
-          onClick={startNewSession}
-          className="p-1.5 rounded-lg text-slate-500 hover:text-slate-300 hover:bg-slate-800 transition-colors"
-          title="새 대화"
-        >
-          <RotateCcw size={14} />
-        </button>
+          <button
+            onClick={startNewSession}
+            className="p-2 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-xl transition-colors"
+            title="튜터/주제 변경"
+          >
+            <Settings2 size={14} />
+          </button>
+        </div>
       </header>
 
-      {/* ── Persona selector ── */}
-      <PersonaSelector current={personaId} onSelect={handlePersonaSelect} />
-
-      {/* ── Topic selector ── */}
-      <TopicSelector current={topicId} onSelect={handleTopicSelect} />
-
-      {/* ── 3D Character ── */}
-      <div className="h-44 shrink-0 relative overflow-hidden">
+      {/* ── Character Scene ── */}
+      <div className="relative shrink-0 overflow-hidden" style={{ height: 240 }}>
         <CharacterScene
           personaId={personaId}
           characterState={characterState}
           amplitudeRef={amplitudeRef}
         />
-        <div className="absolute bottom-2 left-1/2 -translate-x-1/2">
+
+        {/* State badge — top left */}
+        <div className="absolute top-3 left-3 pointer-events-none">
           <span className={[
-            "text-[10px] px-2 py-0.5 rounded-full font-medium tracking-wide uppercase",
-            characterState === "speaking"  ? "bg-indigo-600/80 text-white" :
-            characterState === "listening" ? "bg-red-600/80 text-white"    :
-            characterState === "thinking"  ? "bg-amber-600/80 text-white"  :
-            "bg-slate-700/60 text-slate-400",
+            "inline-flex items-center gap-1.5 text-[10px] font-semibold px-2.5 py-1 rounded-full backdrop-blur-md shadow-sm",
+            characterState === "speaking"  ? "bg-indigo-600/85 text-white" :
+            characterState === "listening" ? "bg-red-500/85 text-white"    :
+            characterState === "thinking"  ? "bg-amber-500/85 text-white"  :
+            "bg-slate-900/70 text-slate-400",
           ].join(" ")}>
-            {characterState === "speaking"  ? "Speaking"  :
-             characterState === "listening" ? "Listening" :
-             characterState === "thinking"  ? "Thinking…" : "Idle"}
+            {characterState === "speaking"  ? <><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> Speaking</>  :
+             characterState === "listening" ? <><span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" /> Listening</> :
+             characterState === "thinking"  ? <>💭 Thinking…</> :
+             <>● Idle</>}
           </span>
         </div>
+
+        {/* Report button — top right */}
+        {userMessageCount > 0 && (
+          <div className="absolute top-3 right-3">
+            <button
+              onClick={handleEndSession}
+              disabled={disabled || isGeneratingReport}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-900/80 backdrop-blur-md text-slate-400 hover:text-red-400 hover:bg-slate-900/95 text-[10px] font-semibold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-sm border border-slate-700/50"
+            >
+              {isGeneratingReport ? <Loader2 size={10} className="animate-spin" /> : "■"}
+              {isGeneratingReport ? "분석중…" : "리포트"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Chat messages ── */}
-      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+      <main className="flex-1 overflow-y-auto px-4 py-4 space-y-3.5">
         {messages.map((msg, i) => (
-          <div key={i} className={`flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}>
+          <div key={msg.id ?? i} className={`flex flex-col gap-1.5 msg-in ${msg.role === "user" ? "items-end" : "items-start"}`}>
             {msg.role === "user" ? (
               <>
-                <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-sm bg-indigo-600 text-white text-sm leading-relaxed">
+                <div className="max-w-[80%] px-4 py-2.5 rounded-2xl rounded-br-sm bg-indigo-600 text-white text-sm leading-relaxed shadow-md shadow-indigo-900/30">
                   {msg.text}
                 </div>
-                {/* Pronunciation score */}
-                {msg.pronunciationScore !== null && (
+                {/* Pronunciation badge — only for voice messages (non-null score) */}
+                {msg.pronunciationScore !== null && msg.pronunciationScore !== undefined && (
                   <PronBadge score={msg.pronunciationScore} />
                 )}
-                {/* Grammar correction */}
                 {msg.correction && (
-                  <div className="max-w-[80%] px-3 py-2 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs leading-relaxed">
-                    <span className="font-semibold text-amber-400">💡 More natural: </span>
+                  <div className="max-w-[80%] px-3.5 py-2.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs leading-relaxed">
+                    <span className="font-bold text-amber-400">💡 More natural: </span>
                     {msg.correction}
                   </div>
                 )}
               </>
             ) : (
-              <div className="flex items-start gap-2.5 max-w-[85%]">
-                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center mt-0.5 text-xs">
+              <div className="flex items-end gap-2 max-w-[85%]">
+                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center text-sm mb-0.5 shadow-sm">
                   {PERSONAS[personaId].emoji}
                 </div>
-                <div className="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-slate-800 text-slate-100 text-sm leading-relaxed">
+                <div className="px-4 py-2.5 rounded-2xl rounded-bl-sm bg-slate-800 text-slate-100 text-sm leading-relaxed shadow-sm border border-slate-700/30">
                   {msg.text}
                 </div>
               </div>
@@ -458,59 +463,94 @@ export default function Home() {
           </div>
         ))}
 
-        {(isProcessing && !isSpeaking) && (
-          <div className="flex items-start gap-2.5">
-            <div className="flex-shrink-0 w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs">
+        {/* Typing indicator */}
+        {isProcessing && !isSpeaking && (
+          <div className="flex items-end gap-2">
+            <div className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800 border border-slate-700/80 flex items-center justify-center text-sm mb-0.5">
               {PERSONAS[personaId].emoji}
             </div>
-            <div className="px-4 py-2.5 rounded-2xl rounded-tl-sm bg-slate-800 text-slate-400 text-sm">
-              {[0, 150, 300].map((d) => (
-                <span key={d} className="animate-bounce inline-block mx-0.5" style={{ animationDelay: `${d}ms` }}>·</span>
-              ))}
+            <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-slate-800 border border-slate-700/30 shadow-sm">
+              <TypingDots />
             </div>
           </div>
         )}
+
         <div ref={chatEndRef} />
       </main>
 
-      {/* ── Footer / mic ── */}
-      <footer className="px-4 py-4 border-t border-slate-700/60 bg-slate-900/90 backdrop-blur shrink-0">
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-[11px] text-slate-500">
-            {isRecording        ? "Release to send"   :
-             isGeneratingReport ? "리포트 생성중…"     :
-             isProcessing       ? "Processing…"        :
-             isSpeaking         ? `${PERSONAS[personaId].name} is speaking…` :
-             "Hold to speak · 한국어도 OK"}
-          </p>
-          <button
-            onPointerDown={handlePointerDown}
-            onPointerUp={handlePointerUp}
-            onPointerLeave={handlePointerUp}
+      {/* ── Footer: Text input + Mic ── */}
+      <footer className="px-4 pt-3 pb-5 border-t border-slate-800/80 bg-slate-950 shrink-0">
+        <div className="flex items-end gap-2">
+          {/* Text input */}
+          <textarea
+            ref={textInputRef}
+            value={textInput}
+            onChange={(e) => {
+              setTextInput(e.target.value);
+              const el = e.target;
+              el.style.height = "auto";
+              el.style.height = Math.min(el.scrollHeight, 120) + "px";
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && textInput.trim() && !disabled) {
+                e.preventDefault();
+                sendText();
+              }
+            }}
             disabled={disabled}
-            aria-label={isRecording ? "Stop recording" : "Start recording"}
-            className={[
-              "relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-150 select-none",
-              "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400",
-              disabled     ? "bg-slate-700 cursor-not-allowed opacity-40" :
-              isRecording  ? "bg-red-600 scale-110 shadow-lg shadow-red-600/40 pulse-ring" :
-                             "bg-indigo-600 hover:bg-indigo-500 shadow-lg shadow-indigo-600/30 active:scale-95",
-            ].join(" ")}
-          >
-            {isProcessing || isSpeaking || isGeneratingReport ? (
-              <Loader2 size={24} className="text-white animate-spin" />
-            ) : isRecording ? (
-              <MicOff size={24} className="text-white" />
-            ) : (
-              <Mic size={24} className="text-white" />
-            )}
-          </button>
+            placeholder={
+              isRecording   ? "🔴 손 떼면 전송…" :
+              isProcessing  ? "Processing…"       :
+              isSpeaking    ? "Speaking…"          :
+              "메시지 입력 또는 꾹 눌러서 말하기…"
+            }
+            rows={1}
+            style={{ height: 46, maxHeight: 120 }}
+            className="flex-1 bg-slate-800/80 text-slate-100 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 placeholder:text-slate-600 border border-slate-700/50 disabled:opacity-50 leading-snug overflow-y-auto"
+          />
+
+          {/* Send (text) or Mic (voice) button */}
+          {textInput.trim() ? (
+            <button
+              onClick={sendText}
+              disabled={disabled}
+              className="w-12 h-12 rounded-2xl bg-indigo-600 hover:bg-indigo-500 flex items-center justify-center flex-shrink-0 transition-all active:scale-95 disabled:opacity-40 shadow-md"
+            >
+              <Send size={18} className="text-white" />
+            </button>
+          ) : (
+            <button
+              onPointerDown={handlePointerDown}
+              onPointerUp={handlePointerUp}
+              onPointerLeave={handlePointerUp}
+              disabled={disabled}
+              aria-label={isRecording ? "Stop recording" : "Hold to speak"}
+              className={[
+                "relative w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-150 select-none",
+                "focus:outline-none",
+                disabled
+                  ? "bg-slate-800 cursor-not-allowed opacity-40"
+                  : isRecording
+                    ? "bg-red-600 scale-110 shadow-lg shadow-red-600/40 pulse-ring"
+                    : "bg-indigo-600 hover:bg-indigo-500 active:scale-95 shadow-md",
+              ].join(" ")}
+            >
+              {isProcessing || isSpeaking || isGeneratingReport
+                ? <Loader2 size={18} className="text-white animate-spin" />
+                : isRecording
+                  ? <MicOff size={18} className="text-white" />
+                  : <Mic size={18} className="text-white" />}
+            </button>
+          )}
         </div>
+
+        {/* Hint text */}
+        <p className="text-[10px] text-slate-700 text-center mt-2">
+          {isRecording ? "손 떼면 전송" : "Enter로 전송 · 마이크 홀드해서 말하기"}
+        </p>
       </footer>
 
-      <audio ref={audioRef} className="hidden" />
-
-      {/* ── Session Report modal ── */}
+      {/* ── Modals ── */}
       {showReport && reportData && (
         <SessionReport
           report={reportData}
@@ -520,8 +560,6 @@ export default function Home() {
           onNewSession={startNewSession}
         />
       )}
-
-      {/* ── History drawer ── */}
       {showHistory && (
         <HistoryDrawer
           sessions={sessions}
@@ -529,6 +567,7 @@ export default function Home() {
           onDelete={handleDeleteSession}
         />
       )}
+
     </div>
   );
 }
