@@ -190,7 +190,7 @@ export default function NewsPage() {
       });
       const analysis = await res.json() as Partial<Article>;
       setArticles((prev) =>
-        prev.map((a) => a.id === article.id ? { ...a, ...analysis, vocabulary: undefined, ...analysis } : a)
+        prev.map((a) => a.id === article.id ? { ...a, ...analysis } : a)
       );
     } catch (err) {
       console.error("[analyzeArticle]", err);
