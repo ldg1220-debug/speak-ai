@@ -9,7 +9,7 @@ export interface Article {
   summaryEn: string;
   summaryKo: string;
   openingQuestion: string;
-  vocabulary: [string, string, string, string][];
+  vocabulary?: [string, string, string, string][];
 }
 
 export const MOCK_ARTICLES: Article[] = [
