@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useCallback, useState } from "react";
 import dynamic from "next/dynamic";
-import { Mic, MicOff, Loader2, History, Settings2, Send } from "lucide-react";
+import { Mic, MicOff, Loader2, History, Settings2, Send, SlidersHorizontal } from "lucide-react";
 import { PERSONAS } from "@/lib/personas";
 import { useCharacterStore, type Emotion } from "@/store/useCharacterStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { useAudioAnalyzer } from "@/hooks/useAudioAnalyzer";
 import {
   loadSessions,
@@ -19,6 +20,7 @@ import TutorStep     from "@/components/TutorStep";
 import TopicStep     from "@/components/TopicStep";
 import SessionReport from "@/components/SessionReport";
 import HistoryDrawer from "@/components/HistoryDrawer";
+import SettingsPanel from "@/components/SettingsPanel";
 import type { CharacterState } from "@/components/CharacterScene";
 import { getTopicById } from "@/lib/topics";
 
@@ -82,9 +84,18 @@ export default function Home() {
   const [showReport, setShowReport]   = useState(false);
   const [reportData, setReportData]   = useState<SessionReportData | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [sessions, setSessions]       = useState<StoredSession[]>([]);
 
+  const { volume, koreanToEnglish, showKoreanSummary, continuousMode } = useSettingsStore();
+
   const { playAudio, amplitudeRef } = useAudioAnalyzer();
+
+  // VAD refs for silence detection
+  const vadCtxRef        = useRef<AudioContext | null>(null);
+  const vadAnalyserRef   = useRef<AnalyserNode | null>(null);
+  const vadTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const vadFrameRef      = useRef<number>(0);
   const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
   const audioChunksRef    = useRef<Blob[]>([]);
   const chatEndRef        = useRef<HTMLDivElement | null>(null);
@@ -114,7 +125,33 @@ export default function Home() {
     if (step === "chat") chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isProcessing, step]);
 
+  // ── Continuous (hands-free) mode: auto-restart mic after AI finishes speaking
+  const prevIsSpeaking = useRef(false);
+  useEffect(() => {
+    if (
+      continuousMode &&
+      step === "chat" &&
+      prevIsSpeaking.current === true &&
+      isSpeaking === false &&
+      !isProcessing &&
+      !isRecording
+    ) {
+      const t = setTimeout(() => startRecording(), 600);
+      return () => clearTimeout(t);
+    }
+    prevIsSpeaking.current = isSpeaking;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isSpeaking, continuousMode, step, isProcessing, isRecording]);
+
   // ── Recording ──────────────────────────────────────────────────────────────
+
+  const stopVAD = useCallback(() => {
+    cancelAnimationFrame(vadFrameRef.current);
+    if (vadTimerRef.current) { clearTimeout(vadTimerRef.current); vadTimerRef.current = null; }
+    try { vadCtxRef.current?.close(); } catch {}
+    vadCtxRef.current  = null;
+    vadAnalyserRef.current = null;
+  }, []);
 
   const startRecording = useCallback(async () => {
     if (isProcessing || isRecording || isSpeaking) return;
@@ -128,13 +165,47 @@ export default function Home() {
       recorder.start(100);
       mediaRecorderRef.current = recorder;
       setIsRecording(true);
+
+      // ── VAD: silence detection (auto-stop after 2s of quiet) ──────────────
+      try {
+        const vadCtx     = new AudioContext();
+        const src        = vadCtx.createMediaStreamSource(stream);
+        const analyser   = vadCtx.createAnalyser();
+        analyser.fftSize = 512;
+        src.connect(analyser);
+        vadCtxRef.current     = vadCtx;
+        vadAnalyserRef.current = analyser;
+
+        const buf = new Uint8Array(analyser.frequencyBinCount);
+        let silenceStart = Date.now();
+        const SILENCE_THRESHOLD = 5;   // 0–255 RMS
+        const SILENCE_DURATION  = 2000; // 2 seconds
+
+        const tick = () => {
+          if (!vadAnalyserRef.current) return;
+          vadAnalyserRef.current.getByteFrequencyData(buf);
+          const rms = buf.reduce((a, b) => a + b, 0) / buf.length;
+
+          if (rms > SILENCE_THRESHOLD) {
+            silenceStart = Date.now(); // voice detected — reset timer
+          } else if (Date.now() - silenceStart > SILENCE_DURATION) {
+            stopRecording(); // silence long enough → auto-send
+            return;
+          }
+          vadFrameRef.current = requestAnimationFrame(tick);
+        };
+        vadFrameRef.current = requestAnimationFrame(tick);
+      } catch { /* VAD failed gracefully — manual stop still works */ }
+
     } catch {
       alert("Microphone access denied. Please allow microphone access and try again.");
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isProcessing, isRecording, isSpeaking, setIsRecording]);
 
   const stopRecording = useCallback(() => {
     if (!mediaRecorderRef.current || !isRecording) return;
+    stopVAD();
     mediaRecorderRef.current.onstop = async () => {
       const mimeType = mediaRecorderRef.current?.mimeType ?? "audio/webm";
       const blob = new Blob(audioChunksRef.current, { type: mimeType });
@@ -144,7 +215,7 @@ export default function Home() {
     mediaRecorderRef.current.stop();
     setIsRecording(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecording, setIsRecording]);
+  }, [isRecording, setIsRecording, stopVAD]);
 
   // ── Send audio (voice) ─────────────────────────────────────────────────────
 
@@ -156,6 +227,8 @@ export default function Home() {
       fd.append("audio", blob, `recording.${ext}`);
       fd.append("history", JSON.stringify(history));
       fd.append("personaId", personaId);
+      fd.append("koreanToEnglish",  String(koreanToEnglish));
+      fd.append("showKoreanSummary", String(showKoreanSummary));
       if (topicId) fd.append("topicId", topicId);
       if (newsContext) fd.append("newsArticle", JSON.stringify(newsContext));
 
@@ -184,7 +257,7 @@ export default function Home() {
 
       if (data.audio) {
         const bytes = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
-        await playAudio(bytes.buffer);
+        await playAudio(bytes.buffer, volume);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
@@ -212,7 +285,7 @@ export default function Home() {
       const res = await fetch("/api/chat/text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, history, personaId, topicId, newsArticle: newsContext }),
+        body: JSON.stringify({ text, history, personaId, topicId, newsArticle: newsContext, koreanToEnglish, showKoreanSummary }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -233,14 +306,14 @@ export default function Home() {
 
       if (data.audio) {
         const bytes = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
-        await playAudio(bytes.buffer);
+        await playAudio(bytes.buffer, volume);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       addMessage({ role: "assistant", text: `⚠️ ${msg}` });
       setIsProcessing(false);
     }
-  }, [textInput, disabled, history, personaId, topicId, newsContext, addMessage, addHistory, setIsProcessing, setCurrentEmotion, playAudio]);
+  }, [textInput, disabled, history, personaId, topicId, newsContext, koreanToEnglish, showKoreanSummary, volume, addMessage, addHistory, setIsProcessing, setCurrentEmotion, playAudio]);
 
   // ── Session report ─────────────────────────────────────────────────────────
 
@@ -380,6 +453,13 @@ export default function Home() {
                 {sessions.length > 9 ? "9+" : sessions.length}
               </span>
             )}
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            className="p-2 text-slate-500 hover:text-slate-300 hover:bg-slate-800 rounded-xl transition-colors"
+            title="설정"
+          >
+            <SlidersHorizontal size={15} />
           </button>
           <button
             onClick={startNewSession}
@@ -546,7 +626,11 @@ export default function Home() {
 
         {/* Hint text */}
         <p className="text-[10px] text-slate-700 text-center mt-2">
-          {isRecording ? "손 떼면 전송" : "Enter로 전송 · 마이크 홀드해서 말하기"}
+          {continuousMode
+            ? "🚗 핸즈프리 모드 · 말하면 자동 감지"
+            : isRecording
+              ? "조용히 있으면 자동 전송"
+              : "Enter로 전송 · 마이크 홀드해서 말하기"}
         </p>
       </footer>
 
@@ -566,6 +650,9 @@ export default function Home() {
           onClose={() => setShowHistory(false)}
           onDelete={handleDeleteSession}
         />
+      )}
+      {showSettings && (
+        <SettingsPanel onClose={() => setShowSettings(false)} />
       )}
 
     </div>

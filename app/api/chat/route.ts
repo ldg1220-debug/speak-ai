@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   const topicId = formData.get("topicId");
   const topic = getTopicById(typeof topicId === "string" ? topicId : null);
 
-  // News context (optional — injected when user starts tutor from news page)
+  // News context
   let newsArticle: { title: string; summaryEn: string; openingQuestion: string } | null = null;
   const newsArticleRaw = formData.get("newsArticle");
   if (typeof newsArticleRaw === "string") {
@@ -49,7 +49,11 @@ export async function POST(req: NextRequest) {
     try { history = JSON.parse(historyRaw); } catch { /* ignore */ }
   }
 
-  // ── Step 1: Whisper STT (verbose_json for pronunciation score) ────────────
+  // Settings flags
+  const koreanToEnglish  = formData.get("koreanToEnglish")  === "true";
+  const showKoreanSummary = formData.get("showKoreanSummary") === "true";
+
+  // ── Step 1: Whisper STT ────────────────────────────────────────────────────
   let transcript: string;
   let pronunciationScore: number | null = null;
   let detectedLanguage = "en";
@@ -64,15 +68,13 @@ export async function POST(req: NextRequest) {
       timestamp_granularities: ["segment"],
     });
 
-    transcript     = stt.text.trim();
+    transcript       = stt.text.trim();
     detectedLanguage = stt.language ?? "en";
 
-    // Pronunciation score only for English speech
     if (detectedLanguage === "en" && stt.segments && stt.segments.length > 0) {
       const avgLogProb =
         stt.segments.reduce((sum, seg) => sum + seg.avg_logprob, 0) /
         stt.segments.length;
-      // avg_logprob: 0 = perfect, -1 = poor. Map to 0–100.
       pronunciationScore = Math.min(100, Math.max(0, Math.round((1 + avgLogProb) * 100)));
     }
   } catch (err) {
@@ -89,14 +91,31 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // ── Step 2: GPT-4o with persona + topic ──────────────────────────────────
-  // Build system prompt: persona base + optional topic + optional news context
+  // ── Step 2: GPT (gpt-4o-mini for speed) ───────────────────────────────────
+  const isKorean = detectedLanguage === "ko" || /[가-힣]/.test(transcript);
+
   let systemPrompt = persona.systemPrompt;
   if (topic) {
-    systemPrompt += `\n\n**Current topic focus:** ${topic.promptHint}`;
+    systemPrompt += `\n\n**Current topic:** ${topic.promptHint}`;
   }
   if (newsArticle) {
-    systemPrompt += `\n\n**News article to discuss:**\nTitle: ${newsArticle.title}\nSummary: ${newsArticle.summaryEn}\nOpening question: ${newsArticle.openingQuestion}\n\nGuide the conversation around this news article. Ask follow-up questions about the learner's opinions on this topic.`;
+    systemPrompt += `\n\n**News article to discuss:**\nTitle: ${newsArticle.title}\nSummary: ${newsArticle.summaryEn}\nOpening question: ${newsArticle.openingQuestion}\n\nGuide the conversation around this news article.`;
+  }
+
+  // Korean feature instructions
+  const koreanInstructions: string[] = [];
+  if (koreanToEnglish && isKorean) {
+    koreanInstructions.push(
+      `The user just spoke in Korean. Start your "reply" field with: "그 말은 영어로 '[English phrase]'라고 표현하면 돼요! 😊" — then continue your English response.`
+    );
+  }
+  if (showKoreanSummary) {
+    koreanInstructions.push(
+      `At the very end of your "reply" field, add a line break and then a brief Korean summary starting with "📝 " that tells the user in Korean what you just said in English (2 sentences max).`
+    );
+  }
+  if (koreanInstructions.length > 0) {
+    systemPrompt += `\n\n**Special instructions for this response:**\n${koreanInstructions.join("\n")}`;
   }
 
   type EmotionValue = "neutral" | "happy" | "sad" | "surprised" | "thinking";
@@ -106,16 +125,16 @@ export async function POST(req: NextRequest) {
   try {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
+      ...history.slice(-14).map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: transcript },
     ];
 
     const chat = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",   // faster than gpt-4o
       response_format: { type: "json_object" },
       messages,
       temperature: personaId === "sterling" ? 0.6 : 0.8,
-      max_tokens: 400,
+      max_tokens: 350,
     });
 
     const parsed = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as {
@@ -128,18 +147,21 @@ export async function POST(req: NextRequest) {
     emotion    = (parsed.emotion as typeof emotion) ?? "neutral";
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "GPT-4o request failed." },
+      { error: err instanceof Error ? err.message : "GPT request failed." },
       { status: 502 }
     );
   }
 
   // ── Step 3: TTS ───────────────────────────────────────────────────────────
+  // Strip Korean summary from TTS (only speak the English part)
+  const ttsText = reply.split("📝")[0].trim();
+
   let audioBase64: string;
   try {
     const tts = await openai.audio.speech.create({
       model: "tts-1",
       voice: persona.voice,
-      input: reply,
+      input: ttsText || reply,
       response_format: "mp3",
     });
     audioBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");

@@ -17,6 +17,8 @@ export async function POST(req: NextRequest) {
     personaId?: string;
     topicId?: string | null;
     newsArticle?: { title: string; summaryEn: string; openingQuestion: string } | null;
+    koreanToEnglish?: boolean;
+    showKoreanSummary?: boolean;
   };
 
   try {
@@ -25,7 +27,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { text, history = [], personaId: rawPersonaId, topicId, newsArticle } = body;
+  const {
+    text, history = [], personaId: rawPersonaId, topicId, newsArticle,
+    koreanToEnglish = false, showKoreanSummary = false,
+  } = body;
 
   if (!text?.trim()) {
     return NextResponse.json({ error: "No text provided." }, { status: 400 });
@@ -39,10 +44,27 @@ export async function POST(req: NextRequest) {
   const persona = PERSONAS[personaId];
   const topic   = getTopicById(typeof topicId === "string" ? topicId : null);
 
+  const isKorean = /[가-힣]/.test(text.trim());
+
   let systemPrompt = persona.systemPrompt;
-  if (topic) systemPrompt += `\n\n**Current topic focus:** ${topic.promptHint}`;
+  if (topic) systemPrompt += `\n\n**Current topic:** ${topic.promptHint}`;
   if (newsArticle) {
     systemPrompt += `\n\n**News article to discuss:**\nTitle: ${newsArticle.title}\nSummary: ${newsArticle.summaryEn}\nOpening question: ${newsArticle.openingQuestion}\n\nGuide the conversation around this news article.`;
+  }
+
+  const koreanInstructions: string[] = [];
+  if (koreanToEnglish && isKorean) {
+    koreanInstructions.push(
+      `The user just typed in Korean. Start your "reply" field with: "그 말은 영어로 '[English phrase]'라고 표현하면 돼요! 😊" — then continue your English response.`
+    );
+  }
+  if (showKoreanSummary) {
+    koreanInstructions.push(
+      `At the very end of your "reply" field, add a line break and then a brief Korean summary starting with "📝 " that tells the user in Korean what you just said in English (2 sentences max).`
+    );
+  }
+  if (koreanInstructions.length > 0) {
+    systemPrompt += `\n\n**Special instructions:**\n${koreanInstructions.join("\n")}`;
   }
 
   let correction: string | null = null;
@@ -52,15 +74,15 @@ export async function POST(req: NextRequest) {
   try {
     const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
       { role: "system", content: systemPrompt },
-      ...history.slice(-20).map((m) => ({ role: m.role, content: m.content })),
+      ...history.slice(-14).map((m) => ({ role: m.role, content: m.content })),
       { role: "user", content: text.trim() },
     ];
     const chat = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",   // faster
       response_format: { type: "json_object" },
       messages,
       temperature: personaId === "sterling" ? 0.6 : 0.8,
-      max_tokens: 400,
+      max_tokens: 350,
     });
     const parsed = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as {
       correction?: string | null;
@@ -72,16 +94,19 @@ export async function POST(req: NextRequest) {
     emotion    = (parsed.emotion as EmotionValue) ?? "neutral";
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "GPT-4o request failed." },
+      { error: err instanceof Error ? err.message : "GPT request failed." },
       { status: 502 },
     );
   }
+
+  // TTS: only speak the English part (strip Korean 📝 summary)
+  const ttsText = reply.split("📝")[0].trim();
 
   try {
     const tts = await openai.audio.speech.create({
       model: "tts-1",
       voice: persona.voice,
-      input: reply,
+      input: ttsText || reply,
       response_format: "mp3",
     });
     const audioBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");

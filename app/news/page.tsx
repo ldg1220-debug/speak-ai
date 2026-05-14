@@ -42,13 +42,30 @@ function getDeviceId(): string {
   return id;
 }
 
-function speak(text: string, lang: string) {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = lang;
-  u.rate = lang === "ko-KR" ? 0.95 : 0.9;
-  window.speechSynthesis.speak(u);
+async function speak(text: string, lang: string) {
+  try {
+    const res = await fetch("/api/tts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ text, lang: lang.startsWith("ko") ? "ko" : "en" }),
+    });
+    if (!res.ok) throw new Error("TTS API error");
+    const { audio } = await res.json() as { audio: string };
+    const bytes = Uint8Array.from(atob(audio), (c) => c.charCodeAt(0));
+    const blob  = new Blob([bytes], { type: "audio/mpeg" });
+    const url   = URL.createObjectURL(blob);
+    const audioEl = new Audio(url);
+    audioEl.onended = () => URL.revokeObjectURL(url);
+    await audioEl.play();
+  } catch {
+    // Fallback to browser TTS if API fails
+    if (!("speechSynthesis" in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = lang;
+    u.rate = 0.9;
+    window.speechSynthesis.speak(u);
+  }
 }
 
 // ─── Article Card ─────────────────────────────────────────────────────────────

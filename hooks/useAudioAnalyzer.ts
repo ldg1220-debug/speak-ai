@@ -3,9 +3,10 @@ import { useCharacterStore } from "@/store/useCharacterStore";
 import { lipState, ARKIT_LIP } from "@/lib/visemeState";
 
 export function useAudioAnalyzer() {
-  const audioCtxRef = useRef<AudioContext | null>(null);
-  const sourceRef   = useRef<AudioBufferSourceNode | null>(null);
-  const animRef     = useRef<number>(0);
+  const audioCtxRef  = useRef<AudioContext | null>(null);
+  const sourceRef    = useRef<AudioBufferSourceNode | null>(null);
+  const gainRef      = useRef<GainNode | null>(null);
+  const animRef      = useRef<number>(0);
   const amplitudeRef = useRef(0);
 
   const setAudioVolume = useCharacterStore((s) => s.setAudioVolume);
@@ -15,6 +16,7 @@ export function useAudioAnalyzer() {
     cancelAnimationFrame(animRef.current);
     try { sourceRef.current?.stop(); } catch {}
     sourceRef.current?.disconnect();
+    gainRef.current?.disconnect();
     amplitudeRef.current = 0;
     setAudioVolume(0);
     setIsSpeaking(false);
@@ -22,7 +24,7 @@ export function useAudioAnalyzer() {
     for (const k of ARKIT_LIP) lipState.target[k] = 0;
   }, [setAudioVolume, setIsSpeaking]);
 
-  const playAudio = useCallback(async (audioBuffer: ArrayBuffer) => {
+  const playAudio = useCallback(async (audioBuffer: ArrayBuffer, volume = 1) => {
     stopCurrent();
 
     if (!audioCtxRef.current || audioCtxRef.current.state === "closed") {
@@ -35,9 +37,16 @@ export function useAudioAnalyzer() {
     const source  = ctx.createBufferSource();
     source.buffer = decoded;
 
+    // GainNode for volume control
+    const gain = ctx.createGain();
+    gain.gain.value = Math.max(0, Math.min(1, volume));
+    gainRef.current = gain;
+
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 256;
-    source.connect(analyser);
+
+    source.connect(gain);
+    gain.connect(analyser);
     analyser.connect(ctx.destination);
     sourceRef.current = source;
 
@@ -47,7 +56,6 @@ export function useAudioAnalyzer() {
       const vol = data.reduce((a, b) => a + b, 0) / data.length / 128;
       amplitudeRef.current = Math.min(vol * 2.5, 1);
       setAudioVolume(amplitudeRef.current);
-      // Drive ARKit lip sync for GLB avatars
       lipState.speaking = true;
       lipState.target.jawOpen     = amplitudeRef.current * 0.65;
       lipState.target.mouthFunnel = amplitudeRef.current * 0.18;
@@ -68,5 +76,12 @@ export function useAudioAnalyzer() {
     };
   }, [stopCurrent, setAudioVolume, setIsSpeaking]);
 
-  return { playAudio, stopCurrent, amplitudeRef };
+  // Set volume on currently playing audio
+  const setVolume = useCallback((v: number) => {
+    if (gainRef.current) {
+      gainRef.current.gain.value = Math.max(0, Math.min(1, v));
+    }
+  }, []);
+
+  return { playAudio, stopCurrent, amplitudeRef, setVolume };
 }
