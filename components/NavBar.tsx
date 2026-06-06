@@ -35,6 +35,17 @@ export default function NavBar() {
         >
           🎤 튜터
         </Link>
+        <Link
+          href="/words"
+          className={[
+            "px-3 py-1.5 rounded-lg text-xs font-semibold transition-all",
+            pathname === "/words"
+              ? "bg-indigo-600 text-white shadow-sm"
+              : "text-slate-500 hover:text-slate-300",
+          ].join(" ")}
+        >
+          📚 단어장
+        </Link>
       </div>
     </nav>
   );

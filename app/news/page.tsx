@@ -494,9 +494,9 @@ export default function NewsPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-white">핵심 단어</h2>
-                    {selected.vocabulary?.length > 0 && (
+                    {(selected.vocabulary?.length ?? 0) > 0 && (
                       <span className="text-[10px] text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full">
-                        {selected.vocabulary.length}개
+                        {selected.vocabulary!.length}개
                       </span>
                     )}
                   </div>

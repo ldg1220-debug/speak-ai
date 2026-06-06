@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     summaryEn: article.summaryEn,
     summaryKo: article.summaryKo ?? "AI 키가 없어 샘플 한국어 요약을 표시합니다.",
     openingQuestion: article.openingQuestion ?? "What do you think about this news?",
-    vocabulary: article.vocabulary?.length > 0
+    vocabulary: (article.vocabulary?.length ?? 0) > 0
       ? article.vocabulary
       : [
           ["headline", "기사 제목", "noun", "The headline explains the main topic."],
