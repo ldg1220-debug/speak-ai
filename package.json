@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@google/genai": "^2.10.0",
     "@pixiv/three-vrm": "^3.5.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.6.1",

@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Volume2, VolumeX, Languages, FileText, Mic } from "lucide-react";
+import { X, Volume2, VolumeX, Languages, FileText } from "lucide-react";
 import { useSettingsStore } from "@/store/useSettingsStore";
 
 interface Props {
@@ -28,8 +28,8 @@ function Toggle({ on, onToggle }: { on: boolean; onToggle: () => void }) {
 
 export default function SettingsPanel({ onClose }: Props) {
   const {
-    volume, koreanToEnglish, showKoreanSummary, continuousMode,
-    setVolume, toggleKoreanToEnglish, toggleKoreanSummary, toggleContinuousMode,
+    volume, koreanToEnglish, showKoreanSummary,
+    setVolume, toggleKoreanToEnglish, toggleKoreanSummary,
   } = useSettingsStore();
 
   return (
@@ -93,20 +93,6 @@ export default function SettingsPanel({ onClose }: Props) {
               </div>
               <p className="text-xs text-slate-500 mt-1">
                 튜터 답변 뒤에 한국어로 무슨 말을 했는지 요약해줘요
-              </p>
-            </div>
-          </div>
-
-          {/* Continuous Mode */}
-          <div className="flex items-start gap-3">
-            <Mic size={18} className="text-emerald-400 mt-0.5 shrink-0" />
-            <div className="flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-200">핸즈프리 모드</span>
-                <Toggle on={continuousMode} onToggle={toggleContinuousMode} />
-              </div>
-              <p className="text-xs text-slate-500 mt-1">
-                말이 끊기면 자동으로 감지해서 전송해요. 운전 중 연습에 편해요 🚗
               </p>
             </div>
           </div>

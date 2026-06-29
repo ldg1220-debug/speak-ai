@@ -1,5 +1,7 @@
 export type PersonaId = 'sunny' | 'aria' | 'kai' | 'sterling'
 export type TtsVoice = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer'
+// Gemini Live API prebuilt voice names
+export type GeminiVoice = 'Puck' | 'Aoede' | 'Charon' | 'Kore' | 'Fenrir'
 export type AnimStyle = 'bouncy' | 'smooth' | 'casual' | 'stiff'
 
 export interface Persona {
@@ -9,6 +11,7 @@ export interface Persona {
   roleKo: string
   roleEn: string
   voice: TtsVoice
+  geminiVoice: GeminiVoice
   greeting: string
   systemPrompt: string
   // RPM GLB URL — null for Sunny (uses geometric character)
@@ -35,6 +38,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '어린이 친구',
     roleEn: 'Kids Friend',
     voice: 'fable',
+    geminiVoice: 'Puck',
     avatarUrl: '/models/Sunny.glb',
     greeting: "Hi hi hi! I'm Sunny! 🌟 What do you want to talk about today? Animals? 🐶 Games? 🎮 You pick!",
     systemPrompt: `You are Sunny, a super cheerful and energetic AI friend helping children learn English! 🌟
@@ -77,6 +81,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '여성 튜터',
     roleEn: 'Female Tutor',
     voice: 'nova',
+    geminiVoice: 'Aoede',
     avatarUrl: '/models/Aria.glb',
     greeting: "Hello! I'm Aria. It's so lovely to meet you. 🌸 What's been on your mind lately? Let's have a wonderful chat!",
     systemPrompt: `You are Aria, a warm, nurturing English tutor who genuinely cares about every learner's growth.
@@ -118,6 +123,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '남성 튜터',
     roleEn: 'Male Tutor',
     voice: 'onyx',
+    geminiVoice: 'Charon',
     avatarUrl: '/models/Kai.glb',
     greeting: "Hey! What's up? I'm Kai 😎 Ready to chat about literally anything — what's on your mind?",
     systemPrompt: `You are Kai, a cool and laid-back English-speaking friend. You talk like a real native speaker — casual, fun, and authentic.
@@ -159,6 +165,7 @@ export const PERSONAS: Record<PersonaId, Persona> = {
     roleKo: '회사 상사',
     roleEn: 'Boss Mode',
     voice: 'echo',
+    geminiVoice: 'Fenrir',
     avatarUrl: '/models/Mr.Sterling.glb',
     greeting: "Good day. I'm Mr. Sterling. We have limited time — let's use it productively. What business matter shall we address?",
     systemPrompt: `You are Mr. Sterling, a demanding but highly effective Business English coach with extremely high standards.
@@ -196,6 +203,24 @@ export const PERSONAS: Record<PersonaId, Persona> = {
 
 export const PERSONA_ORDER: PersonaId[] = ['sunny', 'aria', 'kai', 'sterling']
 export const DEFAULT_PERSONA: PersonaId = 'kai'
+
+/**
+ * Builds a voice-only system instruction for the Gemini Live API.
+ * Strips the JSON-response-format block (irrelevant for spoken audio) and
+ * replaces it with an instruction to call the `reportTurn` tool instead.
+ */
+export function toLiveInstructions(persona: Persona, extra?: string): string {
+  const base = persona.systemPrompt.split('**Response format')[0].trim()
+  const liveInstructions = `**Voice mode:** You are speaking out loud in a live conversation — keep replies short and natural, like real speech, not written paragraphs.
+
+**Tool use:** After each of your spoken replies, call the "reportTurn" tool with:
+- "correction": a brief natural-language correction/tip if the learner's English had an error, otherwise null
+- "emotion": one of happy | neutral | surprised | sad | thinking, matching the mood of the exchange
+
+Always call reportTurn after speaking — it does not interrupt your speech, just logs metadata.`
+
+  return [base, liveInstructions, extra].filter(Boolean).join('\n\n')
+}
 
 export const ANIM_CONFIG: Record<PersonaId, {
   idleSpeed: number
