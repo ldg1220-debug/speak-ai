@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { PERSONAS, DEFAULT_PERSONA, PersonaId } from "@/lib/personas";
 import { getTopicById } from "@/lib/topics";
+import { memoryToPromptSnippet, type UserMemory } from "@/lib/userMemory";
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 
@@ -53,6 +54,13 @@ export async function POST(req: NextRequest) {
   const koreanToEnglish  = formData.get("koreanToEnglish")  === "true";
   const showKoreanSummary = formData.get("showKoreanSummary") === "true";
 
+  // User memory
+  let userMemory: Partial<UserMemory> = {};
+  const memoryRaw = formData.get("userMemory");
+  if (typeof memoryRaw === "string") {
+    try { userMemory = JSON.parse(memoryRaw); } catch { /* ignore */ }
+  }
+
   // ── Step 1: Whisper STT ────────────────────────────────────────────────────
   let transcript: string;
   let pronunciationScore: number | null = null;
@@ -95,6 +103,8 @@ export async function POST(req: NextRequest) {
   const isKorean = detectedLanguage === "ko" || /[가-힣]/.test(transcript);
 
   let systemPrompt = persona.systemPrompt;
+  const memSnippet = memoryToPromptSnippet(userMemory as UserMemory);
+  if (memSnippet) systemPrompt += `\n\n${memSnippet}`;
   if (topic) {
     systemPrompt += `\n\n**Current topic:** ${topic.promptHint}`;
   }

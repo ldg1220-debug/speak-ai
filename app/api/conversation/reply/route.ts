@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
     chatCount: number;
     difficulty?: string;
     conversationTopic?: string;
+    history?: { role: string; content: string }[];
   };
   try {
     body = await req.json();
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
   }
 
-  const { article, message, chatCount, difficulty = "intermediate", conversationTopic = "news" } = body;
+  const { article, message, chatCount, difficulty = "intermediate", conversationTopic = "news", history = [] } = body;
 
   const fallback = {
     reply:
@@ -79,10 +80,13 @@ Learner answer: ${message}`;
 
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const historyMessages = history
+      .slice(-10)
+      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
     const chat = await openai.chat.completions.create({
       model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
       response_format: { type: "json_object" },
-      messages: [{ role: "user", content: prompt }],
+      messages: [...historyMessages, { role: "user", content: prompt }],
       max_tokens: 400,
     });
 

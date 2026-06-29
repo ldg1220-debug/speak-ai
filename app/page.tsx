@@ -23,6 +23,7 @@ import HistoryDrawer from "@/components/HistoryDrawer";
 import SettingsPanel from "@/components/SettingsPanel";
 import type { CharacterState } from "@/components/CharacterScene";
 import { getTopicById } from "@/lib/topics";
+import { loadMemory, saveMemory, mergeMemory, type UserMemory } from "@/lib/userMemory";
 
 const CharacterScene = dynamic(() => import("@/components/CharacterScene"), {
   ssr: false,
@@ -86,6 +87,7 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [sessions, setSessions]       = useState<StoredSession[]>([]);
+  const [userMemory, setUserMemory]   = useState<UserMemory>(() => loadMemory());
 
   const { volume, koreanToEnglish, showKoreanSummary, continuousMode } = useSettingsStore();
 
@@ -229,6 +231,7 @@ export default function Home() {
       fd.append("personaId", personaId);
       fd.append("koreanToEnglish",  String(koreanToEnglish));
       fd.append("showKoreanSummary", String(showKoreanSummary));
+      fd.append("userMemory", JSON.stringify(userMemory));
       if (topicId) fd.append("topicId", topicId);
       if (newsContext) fd.append("newsArticle", JSON.stringify(newsContext));
 
@@ -285,7 +288,7 @@ export default function Home() {
       const res = await fetch("/api/chat/text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, history, personaId, topicId, newsArticle: newsContext, koreanToEnglish, showKoreanSummary }),
+        body: JSON.stringify({ text, history, personaId, topicId, newsArticle: newsContext, koreanToEnglish, showKoreanSummary, userMemory }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -352,6 +355,32 @@ export default function Home() {
       };
       saveSession(stored);
       setSessions(loadSessions());
+
+      // Extract new memory facts from this session (fire-and-forget, non-blocking)
+      const currentMemory = loadMemory();
+      fetch("/api/memory/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: messages.map((m) => ({ role: m.role, text: m.text })),
+          existingMemory: currentMemory,
+        }),
+      })
+        .then((r) => r.json())
+        .then((patch: Partial<UserMemory>) => {
+          const updated = mergeMemory(currentMemory, {
+            ...patch,
+            totalSessions: currentMemory.totalSessions + 1,
+          });
+          saveMemory(updated);
+          setUserMemory(updated);
+        })
+        .catch(() => {
+          // memory extraction failed — just increment session count
+          const updated = mergeMemory(currentMemory, { totalSessions: currentMemory.totalSessions + 1 });
+          saveMemory(updated);
+          setUserMemory(updated);
+        });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to generate report.";
       alert(`Report error: ${msg}`);

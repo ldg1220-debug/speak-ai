@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { PERSONAS, DEFAULT_PERSONA, PersonaId } from "@/lib/personas";
 import { getTopicById } from "@/lib/topics";
+import { memoryToPromptSnippet, type UserMemory } from "@/lib/userMemory";
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 type EmotionValue   = "neutral" | "happy" | "sad" | "surprised" | "thinking";
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest) {
     newsArticle?: { title: string; summaryEn: string; openingQuestion: string } | null;
     koreanToEnglish?: boolean;
     showKoreanSummary?: boolean;
+    userMemory?: Partial<UserMemory>;
   };
 
   try {
@@ -29,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   const {
     text, history = [], personaId: rawPersonaId, topicId, newsArticle,
-    koreanToEnglish = false, showKoreanSummary = false,
+    koreanToEnglish = false, showKoreanSummary = false, userMemory = {},
   } = body;
 
   if (!text?.trim()) {
@@ -47,6 +49,8 @@ export async function POST(req: NextRequest) {
   const isKorean = /[가-힣]/.test(text.trim());
 
   let systemPrompt = persona.systemPrompt;
+  const memSnippet = memoryToPromptSnippet(userMemory as UserMemory);
+  if (memSnippet) systemPrompt += `\n\n${memSnippet}`;
   if (topic) systemPrompt += `\n\n**Current topic:** ${topic.promptHint}`;
   if (newsArticle) {
     systemPrompt += `\n\n**News article to discuss:**\nTitle: ${newsArticle.title}\nSummary: ${newsArticle.summaryEn}\nOpening question: ${newsArticle.openingQuestion}\n\nGuide the conversation around this news article.`;
