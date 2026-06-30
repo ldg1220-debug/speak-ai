@@ -185,7 +185,6 @@ export default function Home() {
         reply: string;
         correction: string | null;
         emotion: Emotion;
-        audio: string;
       } = await res.json();
 
       addMessage({ role: "assistant", text: data.reply, emotion: data.emotion ?? "neutral" });
@@ -193,10 +192,20 @@ export default function Home() {
       setCurrentEmotion(data.emotion ?? "neutral");
       setIsProcessing(false);
 
-      if (data.audio) {
-        const bytes = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
-        await playAudio(bytes.buffer, volume);
-      }
+      // Fetch + play audio in the background so it doesn't block the text reply.
+      fetch("/api/chat/text/audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: data.reply, personaId }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((audioData: { audio?: string } | null) => {
+          if (audioData?.audio) {
+            const bytes = Uint8Array.from(atob(audioData.audio), (c) => c.charCodeAt(0));
+            playAudio(bytes.buffer, volume);
+          }
+        })
+        .catch(() => {});
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       addMessage({ role: "assistant", text: `⚠️ ${msg}` });

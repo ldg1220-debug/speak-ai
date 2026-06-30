@@ -8,11 +8,9 @@ type HistoryMessage = { role: "user" | "assistant"; content: string };
 type EmotionValue   = "neutral" | "happy" | "sad" | "surprised" | "thinking";
 
 const TEXT_MODEL = "gemini-2.5-flash";
-const TTS_MODEL  = "gemini-2.5-flash-preview-tts";
-const TTS_SAMPLE_RATE = 24000;
 
-// Preview models occasionally return transient 503 "high demand" errors —
-// retry once after a short delay before giving up.
+// Preview/flash models occasionally return transient 503 "high demand"
+// errors — retry once after a short delay before giving up.
 async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
@@ -22,26 +20,6 @@ async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
     await new Promise((r) => setTimeout(r, 1000));
     return fn();
   }
-}
-
-// Gemini TTS returns raw 16-bit PCM with no header — wrap it as WAV so
-// the browser's decodeAudioData() can play it.
-function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
-  const header = Buffer.alloc(44);
-  header.write("RIFF", 0);
-  header.writeUInt32LE(36 + pcm.length, 4);
-  header.write("WAVE", 8);
-  header.write("fmt ", 12);
-  header.writeUInt32LE(16, 16);
-  header.writeUInt16LE(1, 20); // PCM
-  header.writeUInt16LE(1, 22); // mono
-  header.writeUInt32LE(sampleRate, 24);
-  header.writeUInt32LE(sampleRate * 2, 28); // byte rate
-  header.writeUInt16LE(2, 32); // block align
-  header.writeUInt16LE(16, 34); // bits per sample
-  header.write("data", 36);
-  header.writeUInt32LE(pcm.length, 40);
-  return Buffer.concat([header, pcm]);
 }
 
 export async function POST(req: NextRequest) {
@@ -108,10 +86,6 @@ export async function POST(req: NextRequest) {
     systemPrompt += `\n\n**Special instructions:**\n${koreanInstructions.join("\n")}`;
   }
 
-  let correction: string | null = null;
-  let emotion: EmotionValue     = "neutral";
-  let reply: string;
-
   try {
     const contents = [
       ...history.slice(-14).map((m) => ({
@@ -137,39 +111,13 @@ export async function POST(req: NextRequest) {
       reply?: string;
       emotion?: string;
     };
-    correction = parsed.correction ?? null;
-    reply      = parsed.reply ?? "Sorry, I couldn't generate a reply.";
-    emotion    = (parsed.emotion as EmotionValue) ?? "neutral";
+    const correction = parsed.correction ?? null;
+    const reply       = parsed.reply ?? "Sorry, I couldn't generate a reply.";
+    const emotion: EmotionValue = (parsed.emotion as EmotionValue) ?? "neutral";
+    return NextResponse.json({ reply, correction, emotion });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Gemini request failed." },
-      { status: 502 },
-    );
-  }
-
-  // TTS: only speak the English part (strip Korean 📝 summary)
-  const ttsText = reply.split("📝")[0].trim();
-
-  try {
-    const t1 = Date.now();
-    const tts = await withRetry(() => ai.models.generateContent({
-      model: TTS_MODEL,
-      contents: [{ role: "user", parts: [{ text: ttsText || reply }] }],
-      config: {
-        responseModalities: ["AUDIO"],
-        speechConfig: {
-          voiceConfig: { prebuiltVoiceConfig: { voiceName: persona.geminiVoice } },
-        },
-      },
-    }));
-    console.log(`[chat/text] Gemini TTS took ${Date.now() - t1}ms`);
-    const pcmBase64 = tts.data;
-    if (!pcmBase64) throw new Error("No audio returned from TTS.");
-    const wav = pcmToWav(Buffer.from(pcmBase64, "base64"), TTS_SAMPLE_RATE);
-    return NextResponse.json({ reply, correction, emotion, audio: wav.toString("base64") });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "TTS request failed." },
       { status: 502 },
     );
   }
