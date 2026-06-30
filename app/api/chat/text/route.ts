@@ -11,6 +11,19 @@ const TEXT_MODEL = "gemini-2.5-flash";
 const TTS_MODEL  = "gemini-2.5-flash-preview-tts";
 const TTS_SAMPLE_RATE = 24000;
 
+// Preview models occasionally return transient 503 "high demand" errors —
+// retry once after a short delay before giving up.
+async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!message.includes("UNAVAILABLE") && !message.includes("503")) throw err;
+    await new Promise((r) => setTimeout(r, 1000));
+    return fn();
+  }
+}
+
 // Gemini TTS returns raw 16-bit PCM with no header — wrap it as WAV so
 // the browser's decodeAudioData() can play it.
 function pcmToWav(pcm: Buffer, sampleRate: number): Buffer {
@@ -108,7 +121,7 @@ export async function POST(req: NextRequest) {
       { role: "user", parts: [{ text: text.trim() }] },
     ];
     const t0 = Date.now();
-    const chat = await ai.models.generateContent({
+    const chat = await withRetry(() => ai.models.generateContent({
       model: TEXT_MODEL,
       contents,
       config: {
@@ -117,7 +130,7 @@ export async function POST(req: NextRequest) {
         temperature: personaId === "sterling" ? 0.6 : 0.8,
         maxOutputTokens: 350,
       },
-    });
+    }));
     console.log(`[chat/text] Gemini text generation took ${Date.now() - t0}ms`);
     const parsed = JSON.parse(chat.text ?? "{}") as {
       correction?: string | null;
@@ -139,7 +152,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const t1 = Date.now();
-    const tts = await ai.models.generateContent({
+    const tts = await withRetry(() => ai.models.generateContent({
       model: TTS_MODEL,
       contents: [{ role: "user", parts: [{ text: ttsText || reply }] }],
       config: {
@@ -148,7 +161,7 @@ export async function POST(req: NextRequest) {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: persona.geminiVoice } },
         },
       },
-    });
+    }));
     console.log(`[chat/text] Gemini TTS took ${Date.now() - t1}ms`);
     const pcmBase64 = tts.data;
     if (!pcmBase64) throw new Error("No audio returned from TTS.");
