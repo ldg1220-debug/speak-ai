@@ -107,6 +107,7 @@ export async function POST(req: NextRequest) {
       })),
       { role: "user", parts: [{ text: text.trim() }] },
     ];
+    const t0 = Date.now();
     const chat = await ai.models.generateContent({
       model: TEXT_MODEL,
       contents,
@@ -117,6 +118,7 @@ export async function POST(req: NextRequest) {
         maxOutputTokens: 350,
       },
     });
+    console.log(`[chat/text] Gemini text generation took ${Date.now() - t0}ms`);
     const parsed = JSON.parse(chat.text ?? "{}") as {
       correction?: string | null;
       reply?: string;
@@ -136,6 +138,7 @@ export async function POST(req: NextRequest) {
   const ttsText = reply.split("📝")[0].trim();
 
   try {
+    const t1 = Date.now();
     const tts = await ai.models.generateContent({
       model: TTS_MODEL,
       contents: [{ role: "user", parts: [{ text: ttsText || reply }] }],
@@ -146,6 +149,7 @@ export async function POST(req: NextRequest) {
         },
       },
     });
+    console.log(`[chat/text] Gemini TTS took ${Date.now() - t1}ms`);
     const pcmBase64 = tts.data;
     if (!pcmBase64) throw new Error("No audio returned from TTS.");
     const wav = pcmToWav(Buffer.from(pcmBase64, "base64"), TTS_SAMPLE_RATE);
