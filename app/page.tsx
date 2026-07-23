@@ -6,6 +6,7 @@ import { Mic, MicOff, Loader2, History, Settings2, Send, SlidersHorizontal } fro
 import { PERSONAS } from "@/lib/personas";
 import { useCharacterStore, type Emotion } from "@/store/useCharacterStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
+import { useGeminiLiveSession } from "@/hooks/useGeminiLiveSession";
 import { useAudioAnalyzer } from "@/hooks/useAudioAnalyzer";
 import {
   loadSessions,
@@ -23,6 +24,7 @@ import HistoryDrawer from "@/components/HistoryDrawer";
 import SettingsPanel from "@/components/SettingsPanel";
 import type { CharacterState } from "@/components/CharacterScene";
 import { getTopicById } from "@/lib/topics";
+import { loadMemory, saveMemory, mergeMemory, type UserMemory } from "@/lib/userMemory";
 
 const CharacterScene = dynamic(() => import("@/components/CharacterScene"), {
   ssr: false,
@@ -72,10 +74,10 @@ export default function Home() {
   const {
     personaId, topicId, newsContext, sessionId, sessionStart,
     messages, history,
-    isRecording, isProcessing, isSpeaking, isGeneratingReport,
+    isProcessing, isSpeaking, isGeneratingReport,
     autoStartChat,
     setPersona, setTopicId, addMessage, addHistory, resetSession,
-    setIsRecording, setIsProcessing, setIsGeneratingReport, setCurrentEmotion,
+    setIsProcessing, setIsGeneratingReport, setCurrentEmotion,
     setAutoStartChat,
   } = useCharacterStore();
 
@@ -86,27 +88,30 @@ export default function Home() {
   const [showHistory, setShowHistory] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [sessions, setSessions]       = useState<StoredSession[]>([]);
+  const [userMemory, setUserMemory]   = useState<UserMemory>(() => loadMemory());
 
-  const { volume, koreanToEnglish, showKoreanSummary, continuousMode } = useSettingsStore();
+  const { volume, koreanToEnglish, showKoreanSummary } = useSettingsStore();
 
-  const { playAudio, amplitudeRef } = useAudioAnalyzer();
+  const {
+    connect: connectLive,
+    disconnect: disconnectLive,
+    isConnected: isLiveConnected,
+    isAiSpeaking: isLiveAiSpeaking,
+    isUserSpeaking: isLiveUserSpeaking,
+    error: liveError,
+  } = useGeminiLiveSession();
 
-  // VAD refs for silence detection
-  const vadCtxRef        = useRef<AudioContext | null>(null);
-  const vadAnalyserRef   = useRef<AnalyserNode | null>(null);
-  const vadTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const vadFrameRef      = useRef<number>(0);
-  const mediaRecorderRef  = useRef<MediaRecorder | null>(null);
-  const audioChunksRef    = useRef<Blob[]>([]);
-  const chatEndRef        = useRef<HTMLDivElement | null>(null);
-  const textInputRef      = useRef<HTMLTextAreaElement>(null);
+  const { playAudio } = useAudioAnalyzer();
+  const dummyAmplitudeRef = useRef(0);
+  const chatEndRef   = useRef<HTMLDivElement | null>(null);
+  const textInputRef = useRef<HTMLTextAreaElement>(null);
 
   const characterState: CharacterState =
-    isSpeaking   ? "speaking"  :
-    isProcessing ? "thinking"  :
-    isRecording  ? "listening" : "idle";
+    isLiveAiSpeaking   ? "speaking"  :
+    isProcessing       ? "thinking"  :
+    isLiveUserSpeaking ? "listening" : "idle";
 
-  const disabled         = isProcessing || isSpeaking || isGeneratingReport;
+  const disabled = isProcessing || isSpeaking || isGeneratingReport;
   const userMessageCount = messages.filter((m) => m.role === "user").length;
   const allScores        = messages.filter((m) => m.role === "user").map((m) => m.pronunciationScore ?? null);
   const avgPron          = calcAvgPronunciation(allScores);
@@ -125,146 +130,30 @@ export default function Home() {
     if (step === "chat") chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isProcessing, step]);
 
-  // ── Continuous (hands-free) mode: auto-restart mic after AI finishes speaking
-  const prevIsSpeaking = useRef(false);
+  // ── Live voice session toggle ────────────────────────────────────────────
+
+  const toggleLiveSession = useCallback(async () => {
+    if (isLiveConnected) {
+      disconnectLive();
+      return;
+    }
+    await connectLive({
+      personaId,
+      topicId,
+      newsArticle: newsContext,
+      userMemory,
+      koreanToEnglish,
+      showKoreanSummary,
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLiveConnected, connectLive, disconnectLive, personaId, topicId, newsContext, userMemory, koreanToEnglish, showKoreanSummary]);
+
   useEffect(() => {
-    if (
-      continuousMode &&
-      step === "chat" &&
-      prevIsSpeaking.current === true &&
-      isSpeaking === false &&
-      !isProcessing &&
-      !isRecording
-    ) {
-      const t = setTimeout(() => startRecording(), 600);
-      return () => clearTimeout(t);
-    }
-    prevIsSpeaking.current = isSpeaking;
+    if (liveError) addMessage({ role: "assistant", text: `⚠️ ${liveError}` });
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSpeaking, continuousMode, step, isProcessing, isRecording]);
+  }, [liveError]);
 
-  // ── Recording ──────────────────────────────────────────────────────────────
-
-  const stopVAD = useCallback(() => {
-    cancelAnimationFrame(vadFrameRef.current);
-    if (vadTimerRef.current) { clearTimeout(vadTimerRef.current); vadTimerRef.current = null; }
-    try { vadCtxRef.current?.close(); } catch {}
-    vadCtxRef.current  = null;
-    vadAnalyserRef.current = null;
-  }, []);
-
-  const startRecording = useCallback(async () => {
-    if (isProcessing || isRecording || isSpeaking) return;
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mimeType = MediaRecorder.isTypeSupported("audio/webm;codecs=opus")
-        ? "audio/webm;codecs=opus" : "audio/webm";
-      const recorder = new MediaRecorder(stream, { mimeType });
-      audioChunksRef.current = [];
-      recorder.ondataavailable = (e) => { if (e.data.size > 0) audioChunksRef.current.push(e.data); };
-      recorder.start(100);
-      mediaRecorderRef.current = recorder;
-      setIsRecording(true);
-
-      // ── VAD: silence detection (auto-stop after 2s of quiet) ──────────────
-      try {
-        const vadCtx     = new AudioContext();
-        const src        = vadCtx.createMediaStreamSource(stream);
-        const analyser   = vadCtx.createAnalyser();
-        analyser.fftSize = 512;
-        src.connect(analyser);
-        vadCtxRef.current     = vadCtx;
-        vadAnalyserRef.current = analyser;
-
-        const buf = new Uint8Array(analyser.frequencyBinCount);
-        let silenceStart = Date.now();
-        const SILENCE_THRESHOLD = 5;   // 0–255 RMS
-        const SILENCE_DURATION  = 2000; // 2 seconds
-
-        const tick = () => {
-          if (!vadAnalyserRef.current) return;
-          vadAnalyserRef.current.getByteFrequencyData(buf);
-          const rms = buf.reduce((a, b) => a + b, 0) / buf.length;
-
-          if (rms > SILENCE_THRESHOLD) {
-            silenceStart = Date.now(); // voice detected — reset timer
-          } else if (Date.now() - silenceStart > SILENCE_DURATION) {
-            stopRecording(); // silence long enough → auto-send
-            return;
-          }
-          vadFrameRef.current = requestAnimationFrame(tick);
-        };
-        vadFrameRef.current = requestAnimationFrame(tick);
-      } catch { /* VAD failed gracefully — manual stop still works */ }
-
-    } catch {
-      alert("Microphone access denied. Please allow microphone access and try again.");
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isProcessing, isRecording, isSpeaking, setIsRecording]);
-
-  const stopRecording = useCallback(() => {
-    if (!mediaRecorderRef.current || !isRecording) return;
-    stopVAD();
-    mediaRecorderRef.current.onstop = async () => {
-      const mimeType = mediaRecorderRef.current?.mimeType ?? "audio/webm";
-      const blob = new Blob(audioChunksRef.current, { type: mimeType });
-      mediaRecorderRef.current?.stream.getTracks().forEach((t) => t.stop());
-      if (blob.size >= 1000) await sendAudio(blob, mimeType);
-    };
-    mediaRecorderRef.current.stop();
-    setIsRecording(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isRecording, setIsRecording, stopVAD]);
-
-  // ── Send audio (voice) ─────────────────────────────────────────────────────
-
-  const sendAudio = async (blob: Blob, mimeType: string) => {
-    setIsProcessing(true);
-    try {
-      const ext = mimeType.includes("mp4") ? "m4a" : "webm";
-      const fd = new FormData();
-      fd.append("audio", blob, `recording.${ext}`);
-      fd.append("history", JSON.stringify(history));
-      fd.append("personaId", personaId);
-      fd.append("koreanToEnglish",  String(koreanToEnglish));
-      fd.append("showKoreanSummary", String(showKoreanSummary));
-      if (topicId) fd.append("topicId", topicId);
-      if (newsContext) fd.append("newsArticle", JSON.stringify(newsContext));
-
-      const res = await fetch("/api/chat", { method: "POST", body: fd });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ error: "Unknown error" }));
-        throw new Error(err.error ?? "Request failed");
-      }
-
-      const data: {
-        transcript: string;
-        correction: string | null;
-        reply: string;
-        audio: string;
-        emotion: Emotion;
-        pronunciationScore: number | null;
-        language: string;
-      } = await res.json();
-
-      addMessage({ role: "user", text: data.transcript, correction: data.correction, pronunciationScore: data.pronunciationScore });
-      addMessage({ role: "assistant", text: data.reply, emotion: data.emotion ?? "neutral" });
-      addHistory({ role: "user",      content: data.transcript });
-      addHistory({ role: "assistant", content: data.reply });
-      setCurrentEmotion(data.emotion ?? "neutral");
-      setIsProcessing(false);
-
-      if (data.audio) {
-        const bytes = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
-        await playAudio(bytes.buffer, volume);
-      }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
-      addMessage({ role: "assistant", text: `⚠️ ${msg}` });
-      setIsProcessing(false);
-    }
-  };
+  useEffect(() => () => disconnectLive(), [disconnectLive]);
 
   // ── Send text (keyboard) ───────────────────────────────────────────────────
 
@@ -285,7 +174,7 @@ export default function Home() {
       const res = await fetch("/api/chat/text", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text, history, personaId, topicId, newsArticle: newsContext, koreanToEnglish, showKoreanSummary }),
+        body: JSON.stringify({ text, history, personaId, topicId, newsArticle: newsContext, koreanToEnglish, showKoreanSummary, userMemory }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Unknown error" }));
@@ -296,7 +185,6 @@ export default function Home() {
         reply: string;
         correction: string | null;
         emotion: Emotion;
-        audio: string;
       } = await res.json();
 
       addMessage({ role: "assistant", text: data.reply, emotion: data.emotion ?? "neutral" });
@@ -304,10 +192,20 @@ export default function Home() {
       setCurrentEmotion(data.emotion ?? "neutral");
       setIsProcessing(false);
 
-      if (data.audio) {
-        const bytes = Uint8Array.from(atob(data.audio), (c) => c.charCodeAt(0));
-        await playAudio(bytes.buffer, volume);
-      }
+      // Fetch + play audio in the background so it doesn't block the text reply.
+      fetch("/api/chat/text/audio", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: data.reply, personaId }),
+      })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((audioData: { audio?: string } | null) => {
+          if (audioData?.audio) {
+            const bytes = Uint8Array.from(atob(audioData.audio), (c) => c.charCodeAt(0));
+            playAudio(bytes.buffer, volume);
+          }
+        })
+        .catch(() => {});
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       addMessage({ role: "assistant", text: `⚠️ ${msg}` });
@@ -352,6 +250,32 @@ export default function Home() {
       };
       saveSession(stored);
       setSessions(loadSessions());
+
+      // Extract new memory facts from this session (fire-and-forget, non-blocking)
+      const currentMemory = loadMemory();
+      fetch("/api/memory/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: messages.map((m) => ({ role: m.role, text: m.text })),
+          existingMemory: currentMemory,
+        }),
+      })
+        .then((r) => r.json())
+        .then((patch: Partial<UserMemory>) => {
+          const updated = mergeMemory(currentMemory, {
+            ...patch,
+            totalSessions: currentMemory.totalSessions + 1,
+          });
+          saveMemory(updated);
+          setUserMemory(updated);
+        })
+        .catch(() => {
+          // memory extraction failed — just increment session count
+          const updated = mergeMemory(currentMemory, { totalSessions: currentMemory.totalSessions + 1 });
+          saveMemory(updated);
+          setUserMemory(updated);
+        });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Failed to generate report.";
       alert(`Report error: ${msg}`);
@@ -372,12 +296,6 @@ export default function Home() {
     deleteSession(id);
     setSessions(loadSessions());
   }
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    e.currentTarget.setPointerCapture(e.pointerId);
-    startRecording();
-  };
-  const handlePointerUp = () => stopRecording();
 
   // ─── Step: Tutor Selection ─────────────────────────────────────────────────
 
@@ -476,7 +394,7 @@ export default function Home() {
         <CharacterScene
           personaId={personaId}
           characterState={characterState}
-          amplitudeRef={amplitudeRef}
+          amplitudeRef={dummyAmplitudeRef}
         />
 
         {/* State badge — top left */}
@@ -577,20 +495,20 @@ export default function Home() {
                 sendText();
               }
             }}
-            disabled={disabled}
+            disabled={disabled || isLiveConnected}
             placeholder={
-              isRecording   ? "🔴 손 떼면 전송…" :
-              isProcessing  ? "Processing…"       :
-              isSpeaking    ? "Speaking…"          :
-              "메시지 입력 또는 꾹 눌러서 말하기…"
+              isLiveConnected ? "🎙 음성 대화 중…" :
+              isProcessing    ? "Processing…"       :
+              isSpeaking      ? "Speaking…"          :
+              "메시지 입력 또는 마이크로 음성 대화 시작…"
             }
             rows={1}
             style={{ height: 46, maxHeight: 120 }}
             className="flex-1 bg-slate-800/80 text-slate-100 rounded-2xl px-4 py-3 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-indigo-500/40 placeholder:text-slate-600 border border-slate-700/50 disabled:opacity-50 leading-snug overflow-y-auto"
           />
 
-          {/* Send (text) or Mic (voice) button */}
-          {textInput.trim() ? (
+          {/* Send (text) or Mic (live voice toggle) button */}
+          {textInput.trim() && !isLiveConnected ? (
             <button
               onClick={sendText}
               disabled={disabled}
@@ -600,37 +518,31 @@ export default function Home() {
             </button>
           ) : (
             <button
-              onPointerDown={handlePointerDown}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-              disabled={disabled}
-              aria-label={isRecording ? "Stop recording" : "Hold to speak"}
+              onClick={toggleLiveSession}
+              disabled={isProcessing || isGeneratingReport}
+              aria-label={isLiveConnected ? "End voice session" : "Start voice session"}
               className={[
                 "relative w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all duration-150 select-none",
                 "focus:outline-none",
-                disabled
+                isProcessing || isGeneratingReport
                   ? "bg-slate-800 cursor-not-allowed opacity-40"
-                  : isRecording
+                  : isLiveConnected
                     ? "bg-red-600 scale-110 shadow-lg shadow-red-600/40 pulse-ring"
                     : "bg-indigo-600 hover:bg-indigo-500 active:scale-95 shadow-md",
               ].join(" ")}
             >
-              {isProcessing || isSpeaking || isGeneratingReport
-                ? <Loader2 size={18} className="text-white animate-spin" />
-                : isRecording
-                  ? <MicOff size={18} className="text-white" />
-                  : <Mic size={18} className="text-white" />}
+              {isLiveConnected
+                ? <MicOff size={18} className="text-white" />
+                : <Mic size={18} className="text-white" />}
             </button>
           )}
         </div>
 
         {/* Hint text */}
         <p className="text-[10px] text-slate-700 text-center mt-2">
-          {continuousMode
-            ? "🚗 핸즈프리 모드 · 말하면 자동 감지"
-            : isRecording
-              ? "조용히 있으면 자동 전송"
-              : "Enter로 전송 · 마이크 홀드해서 말하기"}
+          {isLiveConnected
+            ? "🎙 실시간 음성 대화 중 · 마이크를 눌러 종료"
+            : "Enter로 전송 · 마이크를 눌러 실시간 음성 대화 시작"}
         </p>
       </footer>
 

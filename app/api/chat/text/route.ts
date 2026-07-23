@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { PERSONAS, DEFAULT_PERSONA, PersonaId } from "@/lib/personas";
 import { getTopicById } from "@/lib/topics";
+import { memoryToPromptSnippet, type UserMemory } from "@/lib/userMemory";
+import { generateGeminiJson } from "@/lib/geminiText";
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 type EmotionValue   = "neutral" | "happy" | "sad" | "surprised" | "thinking";
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
   }
 
   let body: {
@@ -19,6 +21,7 @@ export async function POST(req: NextRequest) {
     newsArticle?: { title: string; summaryEn: string; openingQuestion: string } | null;
     koreanToEnglish?: boolean;
     showKoreanSummary?: boolean;
+    userMemory?: Partial<UserMemory>;
   };
 
   try {
@@ -29,14 +32,14 @@ export async function POST(req: NextRequest) {
 
   const {
     text, history = [], personaId: rawPersonaId, topicId, newsArticle,
-    koreanToEnglish = false, showKoreanSummary = false,
+    koreanToEnglish = false, showKoreanSummary = false, userMemory = {},
   } = body;
 
   if (!text?.trim()) {
     return NextResponse.json({ error: "No text provided." }, { status: 400 });
   }
 
-  const openai   = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   const personaId: PersonaId =
     typeof rawPersonaId === "string" && rawPersonaId in PERSONAS
       ? (rawPersonaId as PersonaId)
@@ -47,6 +50,8 @@ export async function POST(req: NextRequest) {
   const isKorean = /[가-힣]/.test(text.trim());
 
   let systemPrompt = persona.systemPrompt;
+  const memSnippet = memoryToPromptSnippet(userMemory as UserMemory);
+  if (memSnippet) systemPrompt += `\n\n${memSnippet}`;
   if (topic) systemPrompt += `\n\n**Current topic:** ${topic.promptHint}`;
   if (newsArticle) {
     systemPrompt += `\n\n**News article to discuss:**\nTitle: ${newsArticle.title}\nSummary: ${newsArticle.summaryEn}\nOpening question: ${newsArticle.openingQuestion}\n\nGuide the conversation around this news article.`;
@@ -67,53 +72,34 @@ export async function POST(req: NextRequest) {
     systemPrompt += `\n\n**Special instructions:**\n${koreanInstructions.join("\n")}`;
   }
 
-  let correction: string | null = null;
-  let emotion: EmotionValue     = "neutral";
-  let reply: string;
-
   try {
-    const messages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-      { role: "system", content: systemPrompt },
-      ...history.slice(-14).map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: text.trim() },
+    const contents = [
+      ...history.slice(-14).map((m) => ({
+        role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
+        parts: [{ text: m.content }],
+      })),
+      { role: "user" as const, parts: [{ text: text.trim() }] },
     ];
-    const chat = await openai.chat.completions.create({
-      model: "gpt-4o-mini",   // faster
-      response_format: { type: "json_object" },
-      messages,
+    const t0 = Date.now();
+    const raw = await generateGeminiJson(ai, {
+      systemInstruction: systemPrompt,
+      contents,
       temperature: personaId === "sterling" ? 0.6 : 0.8,
-      max_tokens: 350,
+      maxOutputTokens: 350,
     });
-    const parsed = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as {
+    console.log(`[chat/text] Gemini text generation took ${Date.now() - t0}ms`);
+    const parsed = JSON.parse(raw) as {
       correction?: string | null;
       reply?: string;
       emotion?: string;
     };
-    correction = parsed.correction ?? null;
-    reply      = parsed.reply ?? "Sorry, I couldn't generate a reply.";
-    emotion    = (parsed.emotion as EmotionValue) ?? "neutral";
+    const correction = parsed.correction ?? null;
+    const reply       = parsed.reply ?? "Sorry, I couldn't generate a reply.";
+    const emotion: EmotionValue = (parsed.emotion as EmotionValue) ?? "neutral";
+    return NextResponse.json({ reply, correction, emotion });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "GPT request failed." },
-      { status: 502 },
-    );
-  }
-
-  // TTS: only speak the English part (strip Korean 📝 summary)
-  const ttsText = reply.split("📝")[0].trim();
-
-  try {
-    const tts = await openai.audio.speech.create({
-      model: "tts-1",
-      voice: persona.voice,
-      input: ttsText || reply,
-      response_format: "mp3",
-    });
-    const audioBase64 = Buffer.from(await tts.arrayBuffer()).toString("base64");
-    return NextResponse.json({ reply, correction, emotion, audio: audioBase64 });
-  } catch (err) {
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "TTS request failed." },
+      { error: err instanceof Error ? err.message : "Gemini request failed." },
       { status: 502 },
     );
   }

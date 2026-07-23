@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Loader2, BookOpen, CheckCircle, Volume2, Star,
-  ChevronLeft, Mic, RotateCcw,
+  ChevronLeft, Mic, RotateCcw, MessageCircle, Send, X,
 } from "lucide-react";
 import { useCharacterStore } from "@/store/useCharacterStore";
 import type { Article } from "@/lib/mockArticles";
@@ -52,7 +52,7 @@ async function speak(text: string, lang: string) {
     if (!res.ok) throw new Error("TTS API error");
     const { audio } = await res.json() as { audio: string };
     const bytes = Uint8Array.from(atob(audio), (c) => c.charCodeAt(0));
-    const blob  = new Blob([bytes], { type: "audio/mpeg" });
+    const blob  = new Blob([bytes], { type: "audio/wav" });
     const url   = URL.createObjectURL(blob);
     const audioEl = new Audio(url);
     audioEl.onended = () => URL.revokeObjectURL(url);
@@ -174,6 +174,14 @@ export default function NewsPage() {
     return new Set(JSON.parse(localStorage.getItem("savedWords") ?? "[]"));
   });
 
+  // ── Inline chat state ──────────────────────────────────────────────────────
+  type ChatMsg = { role: "user" | "ai"; text: string; correction?: string | null };
+  const [showChat, setShowChat]       = useState(false);
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [chatInput, setChatInput]     = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef                    = useRef<HTMLDivElement | null>(null);
+
   const selected = articles.find((a) => a.id === selectedId) ?? null;
 
   // ── Load news ──────────────────────────────────────────────────────────────
@@ -269,6 +277,53 @@ export default function NewsPage() {
     resetSession();
     setAutoStartChat(true);   // ← skips tutor/topic steps on "/"
     router.push("/");
+  }
+
+  // ── Inline news chat ───────────────────────────────────────────────────────
+  function openChat() {
+    if (!selected) return;
+    setChatMessages([{
+      role: "ai",
+      text: selected.openingQuestion
+        ? `Let's talk about this article! Here's a question to start: "${selected.openingQuestion}"`
+        : `Let's discuss this article: "${selected.title}". What's your take on it?`,
+    }]);
+    setShowChat(true);
+    setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+  }
+
+  async function sendChatMessage() {
+    if (!selected || !chatInput.trim() || chatLoading) return;
+    const text = chatInput.trim();
+    setChatInput("");
+    const newMsg: ChatMsg = { role: "user", text };
+    setChatMessages((prev) => [...prev, newMsg]);
+    setChatLoading(true);
+
+    try {
+      const history = chatMessages.map((m) => ({ role: m.role === "ai" ? "assistant" : "user", content: m.text }));
+      const res = await fetch("/api/conversation/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          article: { title: selected.title, summaryEn: selected.summaryEn },
+          message: text,
+          chatCount: chatMessages.filter((m) => m.role === "user").length,
+          difficulty,
+          history,
+        }),
+      });
+      const data = await res.json() as { reply?: string; correction?: string };
+      const aiMsg: ChatMsg = { role: "ai", text: data.reply ?? "...", correction: data.correction ?? null };
+      setChatMessages((prev) => [...prev, aiMsg]);
+      // TTS for AI reply
+      if (data.reply) speak(data.reply, "en-US").catch(() => {});
+    } catch {
+      setChatMessages((prev) => [...prev, { role: "ai", text: "⚠️ Something went wrong. Try again." }]);
+    } finally {
+      setChatLoading(false);
+      setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
   }
 
   function handleSelectArticle(id: string) {
@@ -494,9 +549,9 @@ export default function NewsPage() {
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <h2 className="text-sm font-bold text-white">핵심 단어</h2>
-                    {selected.vocabulary?.length > 0 && (
+                    {(selected.vocabulary?.length ?? 0) > 0 && (
                       <span className="text-[10px] text-slate-600 bg-slate-800 px-2 py-0.5 rounded-full">
-                        {selected.vocabulary.length}개
+                        {selected.vocabulary!.length}개
                       </span>
                     )}
                   </div>
@@ -528,18 +583,105 @@ export default function NewsPage() {
               </div>
 
               {/* ─ CTA ─ */}
-              <div className="pb-8 space-y-2.5">
+              <div className="pb-2 space-y-2.5">
+                {/* Quick inline chat */}
+                <button
+                  onClick={openChat}
+                  className="w-full py-3.5 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-[0.98] text-white font-bold text-sm transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-emerald-900/40"
+                >
+                  <MessageCircle size={17} />
+                  바로 여기서 대화 연습하기
+                </button>
+                {/* Full tutor */}
                 <button
                   onClick={startTutor}
-                  className="w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-500 active:scale-[0.98] text-white font-bold text-sm transition-all flex items-center justify-center gap-2.5 shadow-lg shadow-indigo-900/40"
+                  className="w-full py-3 rounded-2xl bg-slate-700/80 hover:bg-slate-600 active:scale-[0.98] text-slate-200 font-semibold text-sm transition-all flex items-center justify-center gap-2 border border-slate-600/50"
                 >
-                  <Mic size={17} />
-                  이 뉴스로 AI 튜터와 회화 연습하기
+                  <Mic size={15} />
+                  AI 튜터와 음성으로 연습하기
                 </button>
-                <p className="text-center text-[11px] text-slate-600">
-                  AI 튜터가 기사를 바탕으로 영어 회화를 이끌어 드립니다
-                </p>
               </div>
+
+              {/* ─ Inline chat panel ─ */}
+              {showChat && (
+                <div className="mb-8 rounded-2xl border border-emerald-500/20 bg-slate-900/80 overflow-hidden">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-700/60 bg-slate-800/60">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle size={13} className="text-emerald-400" />
+                      <span className="text-xs font-bold text-slate-300">뉴스 회화 연습</span>
+                      <span className="text-[10px] text-slate-600">AI 튜터 없이 바로 연습</span>
+                    </div>
+                    <button onClick={() => setShowChat(false)} className="p-1 text-slate-600 hover:text-slate-300 rounded-lg transition-colors">
+                      <X size={13} />
+                    </button>
+                  </div>
+
+                  {/* Messages */}
+                  <div className="px-4 py-3 space-y-3 max-h-80 overflow-y-auto">
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex flex-col gap-1 ${msg.role === "user" ? "items-end" : "items-start"}`}>
+                        <div className={[
+                          "max-w-[85%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed",
+                          msg.role === "user"
+                            ? "bg-indigo-600 text-white rounded-br-sm"
+                            : "bg-slate-800 text-slate-100 border border-slate-700/40 rounded-bl-sm",
+                        ].join(" ")}>
+                          {msg.text}
+                        </div>
+                        {msg.correction && (
+                          <div className="max-w-[85%] px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs leading-relaxed">
+                            <span className="font-bold text-amber-400">💡 </span>{msg.correction}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {chatLoading && (
+                      <div className="flex items-center gap-2">
+                        <div className="px-4 py-3 rounded-2xl rounded-bl-sm bg-slate-800 border border-slate-700/40">
+                          <div className="flex gap-1">
+                            {[0,160,320].map((d) => (
+                              <span key={d} className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: `${d}ms`, animationDuration: "900ms" }} />
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={chatEndRef} />
+                  </div>
+
+                  {/* Input */}
+                  <div className="flex items-end gap-2 px-3 pb-3 pt-2 border-t border-slate-700/60">
+                    <textarea
+                      value={chatInput}
+                      onChange={(e) => {
+                        setChatInput(e.target.value);
+                        const el = e.target;
+                        el.style.height = "auto";
+                        el.style.height = Math.min(el.scrollHeight, 100) + "px";
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey && chatInput.trim() && !chatLoading) {
+                          e.preventDefault();
+                          sendChatMessage();
+                        }
+                      }}
+                      disabled={chatLoading}
+                      placeholder="영어로 답해보세요… (한국어도 OK)"
+                      rows={1}
+                      style={{ height: 40, maxHeight: 100 }}
+                      className="flex-1 bg-slate-800 text-slate-100 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-emerald-500/40 placeholder:text-slate-600 border border-slate-700/50 disabled:opacity-50 leading-snug"
+                    />
+                    <button
+                      onClick={sendChatMessage}
+                      disabled={!chatInput.trim() || chatLoading}
+                      className="w-10 h-10 rounded-xl bg-emerald-600 hover:bg-emerald-500 flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <Send size={15} className="text-white" />
+                    </button>
+                  </div>
+                </div>
+              )}
 
             </div>
           </div>
