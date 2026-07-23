@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
+import { generateGeminiJson, userPromptContents } from "@/lib/geminiText";
 import type { Article } from "@/lib/mockArticles";
 
 async function fetchArticleContent(url: string): Promise<string | null> {
@@ -36,8 +37,8 @@ const DIFFICULTY_INSTRUCTIONS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
   }
 
   let body: { article: Article; difficulty?: string };
@@ -81,15 +82,13 @@ Source: ${article.source}
 Text: ${articleText}`;
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const chat = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
-      response_format: { type: "json_object" },
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 1000,
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const raw = await generateGeminiJson(ai, {
+      contents: userPromptContents(prompt),
+      maxOutputTokens: 1500,
     });
 
-    const parsed = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as {
+    const parsed = JSON.parse(raw) as {
       summaryEn?: string;
       summaryKo?: string;
       openingQuestion?: string;
@@ -100,7 +99,7 @@ Text: ${articleText}`;
       return NextResponse.json({ source: "mock", ...fallback });
     }
 
-    return NextResponse.json({ source: "openai", ...fallback, ...parsed });
+    return NextResponse.json({ source: "gemini", ...fallback, ...parsed });
   } catch (err) {
     console.error("[articles/analyze]", err);
     return NextResponse.json({ source: "mock", ...fallback });

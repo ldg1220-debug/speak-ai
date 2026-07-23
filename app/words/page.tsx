@@ -28,7 +28,7 @@ async function speak(text: string, lang: "en" | "ko") {
     if (!res.ok) throw new Error("TTS failed");
     const { audio } = await res.json() as { audio: string };
     const bytes = Uint8Array.from(atob(audio), (c) => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: "audio/mpeg" });
+    const blob = new Blob([bytes], { type: "audio/wav" });
     const url = URL.createObjectURL(blob);
     const el = new Audio(url);
     el.onended = () => URL.revokeObjectURL(url);

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import OpenAI from "openai"
+import { GoogleGenAI } from "@google/genai"
+import { generateGeminiJson, userPromptContents } from "@/lib/geminiText"
 import type { UserMemory } from "@/lib/userMemory"
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY not configured" }, { status: 500 })
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY not configured" }, { status: 500 })
   }
 
   let body: {
@@ -45,19 +46,17 @@ Extract any NEW information revealed. Return JSON only:
 Only include genuinely new information. Keep each fact concise (under 10 words).`
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const chat = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      response_format: { type: "json_object" },
-      messages: [{ role: "user", content: prompt }],
-      max_tokens: 300,
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    const raw = await generateGeminiJson(ai, {
+      contents: userPromptContents(prompt),
+      maxOutputTokens: 300,
       temperature: 0.3,
     })
-    const parsed = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as Partial<UserMemory>
+    const parsed = JSON.parse(raw) as Partial<UserMemory>
     return NextResponse.json(parsed)
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "GPT failed" },
+      { error: err instanceof Error ? err.message : "Gemini failed" },
       { status: 502 }
     )
   }

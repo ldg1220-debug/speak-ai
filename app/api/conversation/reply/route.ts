@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
+import { generateGeminiJson } from "@/lib/geminiText";
 
 const TOPIC_INSTRUCTIONS: Record<string, string> = {
   news:     "Focus on discussing the news article. Ask about opinions, causes, and effects.",
@@ -16,8 +17,8 @@ const DIFFICULTY_INSTRUCTIONS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
   }
 
   let body: {
@@ -79,24 +80,25 @@ News summary: ${article.summaryEn}
 Learner answer: ${message}`;
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-    const historyMessages = history
+    const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    const historyContents = history
       .slice(-10)
-      .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
-    const chat = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
-      response_format: { type: "json_object" },
-      messages: [...historyMessages, { role: "user", content: prompt }],
-      max_tokens: 400,
+      .map((m) => ({
+        role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
+        parts: [{ text: m.content }],
+      }));
+    const raw = await generateGeminiJson(ai, {
+      contents: [...historyContents, { role: "user", parts: [{ text: prompt }] }],
+      maxOutputTokens: 400,
     });
 
-    const parsed = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as {
+    const parsed = JSON.parse(raw) as {
       reply?: string;
       correction?: string;
     };
 
     if (!parsed.reply) return NextResponse.json({ source: "mock", ...fallback });
-    return NextResponse.json({ source: "openai", ...fallback, ...parsed });
+    return NextResponse.json({ source: "gemini", ...fallback, ...parsed });
   } catch (err) {
     console.error("[conversation/reply]", err);
     return NextResponse.json({ source: "mock", ...fallback });

@@ -3,24 +3,10 @@ import { GoogleGenAI } from "@google/genai";
 import { PERSONAS, DEFAULT_PERSONA, PersonaId } from "@/lib/personas";
 import { getTopicById } from "@/lib/topics";
 import { memoryToPromptSnippet, type UserMemory } from "@/lib/userMemory";
+import { generateGeminiJson } from "@/lib/geminiText";
 
 type HistoryMessage = { role: "user" | "assistant"; content: string };
 type EmotionValue   = "neutral" | "happy" | "sad" | "surprised" | "thinking";
-
-const TEXT_MODEL = "gemini-2.5-flash";
-
-// Preview/flash models occasionally return transient 503 "high demand"
-// errors — retry once after a short delay before giving up.
-async function withRetry<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    if (!message.includes("UNAVAILABLE") && !message.includes("503")) throw err;
-    await new Promise((r) => setTimeout(r, 1000));
-    return fn();
-  }
-}
 
 export async function POST(req: NextRequest) {
   if (!process.env.GEMINI_API_KEY) {
@@ -89,27 +75,20 @@ export async function POST(req: NextRequest) {
   try {
     const contents = [
       ...history.slice(-14).map((m) => ({
-        role: m.role === "assistant" ? "model" : "user",
+        role: (m.role === "assistant" ? "model" : "user") as "user" | "model",
         parts: [{ text: m.content }],
       })),
-      { role: "user", parts: [{ text: text.trim() }] },
+      { role: "user" as const, parts: [{ text: text.trim() }] },
     ];
     const t0 = Date.now();
-    const chat = await withRetry(() => ai.models.generateContent({
-      model: TEXT_MODEL,
+    const raw = await generateGeminiJson(ai, {
+      systemInstruction: systemPrompt,
       contents,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        temperature: personaId === "sterling" ? 0.6 : 0.8,
-        maxOutputTokens: 350,
-        // Disable the 2.5-series "thinking" step — it adds several seconds
-        // of latency that a short conversational reply does not need.
-        thinkingConfig: { thinkingBudget: 0 },
-      },
-    }));
+      temperature: personaId === "sterling" ? 0.6 : 0.8,
+      maxOutputTokens: 350,
+    });
     console.log(`[chat/text] Gemini text generation took ${Date.now() - t0}ms`);
-    const parsed = JSON.parse(chat.text ?? "{}") as {
+    const parsed = JSON.parse(raw) as {
       correction?: string | null;
       reply?: string;
       emotion?: string;

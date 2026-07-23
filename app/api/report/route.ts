@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
+import { generateGeminiJson, userPromptContents } from "@/lib/geminiText";
 import { PERSONAS, PersonaId, DEFAULT_PERSONA } from "@/lib/personas";
 import { getTopicById } from "@/lib/topics";
 import type { SessionReportData } from "@/lib/storage";
@@ -12,10 +13,10 @@ interface ReportRequestMessage {
 }
 
 export async function POST(req: NextRequest) {
-  if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({ error: "OPENAI_API_KEY is not configured." }, { status: 500 });
+  if (!process.env.GEMINI_API_KEY) {
+    return NextResponse.json({ error: "GEMINI_API_KEY is not configured." }, { status: 500 });
   }
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
   let body: {
     messages: ReportRequestMessage[];
@@ -85,18 +86,13 @@ Generate a detailed learning report as valid JSON with exactly these keys:
 
   let report: SessionReportData;
   try {
-    const chat = await openai.chat.completions.create({
-      model: "gpt-4o",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userPrompt   },
-      ],
+    const raw = await generateGeminiJson(ai, {
+      systemInstruction: systemPrompt,
+      contents: userPromptContents(userPrompt),
       temperature: 0.7,
-      max_tokens: 1000,
+      maxOutputTokens: 1000,
     });
-
-    report = JSON.parse(chat.choices[0]?.message?.content ?? "{}") as SessionReportData;
+    report = JSON.parse(raw) as SessionReportData;
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Report generation failed." },
