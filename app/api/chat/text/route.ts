@@ -103,6 +103,9 @@ export async function POST(req: NextRequest) {
         responseMimeType: "application/json",
         temperature: personaId === "sterling" ? 0.6 : 0.8,
         maxOutputTokens: 350,
+        // Disable the 2.5-series "thinking" step — it adds several seconds
+        // of latency that a short conversational reply does not need.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     }));
     console.log(`[chat/text] Gemini text generation took ${Date.now() - t0}ms`);
